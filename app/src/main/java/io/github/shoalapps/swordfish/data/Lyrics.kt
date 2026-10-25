@@ -1,4 +1,4 @@
-package io.github.swordfishapps.music.data
+package io.github.shoalapps.swordfish.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,7 +23,7 @@ object Lyrics {
     private suspend fun search(http: OkHttpClient, title: String, artist: String, durationSec: Long): Result? = withContext(Dispatchers.IO) {
         val bare = title.replace(Regex("""\s*[(\[][^)\]]*[)\]]"""), "").trim()
         val url = "https://lrclib.net/api/search".toHttpUrl().newBuilder().addQueryParameter("track_name", bare).addQueryParameter("artist_name", artist).build()
-        val req = Request.Builder().url(url).header("User-Agent", "SwordfishMusic (https://github.com/SwordfishApps/music)").build()
+        val req = Request.Builder().url(url).header("User-Agent", "Swordfish (https://github.com/ShoalApps/swordfish)").build()
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return@use null
             val list = json.parseToJsonElement(resp.body!!.string()) as? kotlinx.serialization.json.JsonArray ?: return@use null
@@ -44,7 +44,7 @@ object Lyrics {
             .addQueryParameter("artist_name", artist)
             .apply { if (durationSec > 0) addQueryParameter("duration", durationSec.toString()) }
             .build()
-        val req = Request.Builder().url(url).header("User-Agent", "SwordfishMusic (https://github.com/SwordfishApps/music)").build()
+        val req = Request.Builder().url(url).header("User-Agent", "Swordfish (https://github.com/ShoalApps/swordfish)").build()
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return@use null
             val o = json.parseToJsonElement(resp.body!!.string()) as? JsonObject ?: return@use null

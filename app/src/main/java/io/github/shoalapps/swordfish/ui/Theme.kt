@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
-package io.github.swordfishapps.music.ui
+package io.github.shoalapps.swordfish.ui
 
 import android.app.Activity
 import android.os.Build
@@ -18,9 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import io.github.swordfishapps.music.data.Settings
+import io.github.shoalapps.swordfish.data.Settings
 
-// Fallback palette: Swordfish blue (#1F5F99), generated with Material's colour utilities.
+// Fallback palette: Swordfish's colour, generated with Material's colour utilities.
 // Used on Android 11 and below, or with dynamic colour turned off.
 private val Light = lightColorScheme(
     primary = Color(0xFF36618E), onPrimary = Color(0xFFFFFFFF),
@@ -28,7 +28,7 @@ private val Light = lightColorScheme(
     secondary = Color(0xFF535F70), onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFD7E3F8), onSecondaryContainer = Color(0xFF3B4858),
     tertiary = Color(0xFF826D8F), onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFF3DAFF), onTertiaryContainer = Color(0xFF523F5F),
+    tertiaryContainer = Color(0xFF826D8F), onTertiaryContainer = Color(0xFFFFFFFF),
     background = Color(0xFFF8F9FF), onBackground = Color(0xFF191C20),
     surface = Color(0xFFF8F9FF), onSurface = Color(0xFF191C20), onSurfaceVariant = Color(0xFF43474E),
     surfaceContainerLow = Color(0xFFF2F3FA), surfaceContainer = Color(0xFFECEEF4),
@@ -42,7 +42,7 @@ private val Dark = darkColorScheme(
     secondary = Color(0xFFBBC7DB), onSecondary = Color(0xFF253140),
     secondaryContainer = Color(0xFF3B4858), onSecondaryContainer = Color(0xFFD7E3F8),
     tertiary = Color(0xFFD7BEE4), onTertiary = Color(0xFF3B2947),
-    tertiaryContainer = Color(0xFF523F5F), onTertiaryContainer = Color(0xFFF3DAFF),
+    tertiaryContainer = Color(0xFF9F88AC), onTertiaryContainer = Color(0xFF000000),
     background = Color(0xFF111418), onBackground = Color(0xFFE1E2E8),
     surface = Color(0xFF111418), onSurface = Color(0xFFE1E2E8), onSurfaceVariant = Color(0xFFC3C6CF),
     surfaceContainerLow = Color(0xFF191C20), surfaceContainer = Color(0xFF1D2024),

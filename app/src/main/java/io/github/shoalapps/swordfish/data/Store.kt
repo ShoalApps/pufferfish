@@ -1,4 +1,4 @@
-package io.github.swordfishapps.music.data
+package io.github.shoalapps.swordfish.data
 
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow

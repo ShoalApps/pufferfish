@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
-package io.github.swordfishapps.music.ui
+package io.github.shoalapps.swordfish.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -81,12 +81,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import io.github.swordfishapps.music.Graph
-import io.github.swordfishapps.music.data.Album
-import io.github.swordfishapps.music.data.Artist
-import io.github.swordfishapps.music.data.Lyrics
-import io.github.swordfishapps.music.data.Music
-import io.github.swordfishapps.music.data.Track
+import io.github.shoalapps.swordfish.Graph
+import io.github.shoalapps.swordfish.data.Album
+import io.github.shoalapps.swordfish.data.Artist
+import io.github.shoalapps.swordfish.data.Lyrics
+import io.github.shoalapps.swordfish.data.Music
+import io.github.shoalapps.swordfish.data.Track
 
 /** What's on screen besides the now-playing view. */
 sealed interface Page {
@@ -127,7 +127,7 @@ private fun SearchScreen(onAlbum: (Album) -> Unit, onArtist: (Artist) -> Unit) {
     var tab by remember { mutableStateOf(0) }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text("Swordfish Music", style = MaterialTheme.typography.headlineSmallEmphasized, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+        Text("Swordfish", style = MaterialTheme.typography.headlineSmallEmphasized, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
         OutlinedTextField(
             query, { query = it },
             placeholder = { Text("Songs, albums, artists") },

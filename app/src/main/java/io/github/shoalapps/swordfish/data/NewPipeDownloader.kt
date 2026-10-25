@@ -1,4 +1,4 @@
-package io.github.swordfishapps.music.data
+package io.github.shoalapps.swordfish.data
 
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody

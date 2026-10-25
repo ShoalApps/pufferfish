@@ -1,4 +1,4 @@
-package io.github.swordfishapps.music
+package io.github.shoalapps.swordfish
 
 import android.Manifest
 import android.os.Build
@@ -8,8 +8,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import io.github.swordfishapps.music.ui.MusicRoot
-import io.github.swordfishapps.music.ui.MusicTheme
+import io.github.shoalapps.swordfish.ui.MusicRoot
+import io.github.shoalapps.swordfish.ui.MusicTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

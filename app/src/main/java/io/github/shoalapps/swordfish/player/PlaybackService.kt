@@ -1,4 +1,4 @@
-package io.github.swordfishapps.music.player
+package io.github.shoalapps.swordfish.player
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -16,9 +16,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import io.github.swordfishapps.music.MainActivity
-import io.github.swordfishapps.music.data.Music
-import io.github.swordfishapps.music.data.Track
+import io.github.shoalapps.swordfish.MainActivity
+import io.github.shoalapps.swordfish.data.Music
+import io.github.shoalapps.swordfish.data.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

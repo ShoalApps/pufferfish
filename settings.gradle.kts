@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SwordfishMusic"
+rootProject.name = "Swordfish"
 include(":app")
