@@ -10,6 +10,7 @@
 
     <queries>
         <package android:name="io.github.shoalapps.shoal" />
+        <package android:name="io.github.shoalapps.shoal.debug" />
     </queries>
 
     <application
