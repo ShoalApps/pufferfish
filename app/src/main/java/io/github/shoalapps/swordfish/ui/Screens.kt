@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -94,6 +95,7 @@ sealed interface Page {
     data object Search : Page
     data class AlbumPage(val album: Album) : Page
     data class ArtistPage(val artist: Artist) : Page
+    data object Settings : Page
 }
 
 @Composable
@@ -112,7 +114,8 @@ fun MusicRoot() {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 when (val p = page) {
-                    Page.Search -> SearchScreen(onAlbum = { page = Page.AlbumPage(it) }, onArtist = { page = Page.ArtistPage(it) })
+                    Page.Search -> SearchScreen(onAlbum = { page = Page.AlbumPage(it) }, onArtist = { page = Page.ArtistPage(it) }, onSettings = { page = Page.Settings })
+                    Page.Settings -> SettingsScreen(onBack = { page = Page.Search })
                     is Page.AlbumPage -> CollectionScreen(p.album.title, p.album.artist, p.album.art, onBack = { page = Page.Search }) { Music.albumTracks(p.album.url).second }
                     is Page.ArtistPage -> CollectionScreen(p.artist.name, "Artist", p.artist.art, round = true, onBack = { page = Page.Search }) { Music.artistTracks(p.artist.url).second }
                 }
@@ -127,14 +130,17 @@ fun MusicRoot() {
 }
 
 @Composable
-private fun SearchScreen(onAlbum: (Album) -> Unit, onArtist: (Artist) -> Unit) {
+private fun SearchScreen(onAlbum: (Album) -> Unit, onArtist: (Artist) -> Unit, onSettings: () -> Unit) {
     val settings by Graph.store.settings.collectAsState()
     var query by remember { mutableStateOf("") }
     var submitted by remember { mutableStateOf("") }
     var tab by remember { mutableStateOf(0) }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text("Swordfish", style = MaterialTheme.typography.headlineSmallEmphasized, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 4.dp)) {
+            Text("Swordfish", style = MaterialTheme.typography.headlineSmallEmphasized, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Settings") }
+        }
         OutlinedTextField(
             query, { query = it },
             placeholder = { Text("Songs, albums, artists") },
