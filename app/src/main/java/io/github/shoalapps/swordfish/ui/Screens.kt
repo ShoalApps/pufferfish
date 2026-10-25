@@ -73,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -101,6 +102,11 @@ fun MusicRoot() {
     var page by remember { mutableStateOf<Page>(Page.Search) }
     var nowPlaying by remember { mutableStateOf(false) }
     BackHandler(enabled = nowPlaying || page != Page.Search) { if (nowPlaying) nowPlaying = false else page = Page.Search }
+    // Like PixelPlayer: with a song playing, the whole app takes its colours from the album art.
+    val settings by Graph.store.settings.collectAsState()
+    val dark = MaterialTheme.colorScheme.surface.luminance() < .5f
+    val art = rememberArtScheme(if (settings.artColours) ui.track?.art else null, dark)
+    MaterialTheme(colorScheme = animateScheme(art ?: MaterialTheme.colorScheme)) {
     // A Surface so text everywhere gets the theme's colour.
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) { Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -117,6 +123,7 @@ fun MusicRoot() {
             NowPlaying(ui, onClose = { nowPlaying = false })
         }
     } }
+    }
 }
 
 @Composable
@@ -256,108 +263,4 @@ private fun MiniPlayer(ui: PlayerUi, onOpen: () -> Unit) {
             }
         }
     }
-}
-
-/** Full-screen player: art (or synced lyrics), the song, a seek bar and controls, coloured from the art. */
-@Composable
-private fun NowPlaying(ui: PlayerUi, onClose: () -> Unit) {
-    val t = ui.track
-    val settings by Graph.store.settings.collectAsState()
-    var showLyrics by remember { mutableStateOf(false) }
-    val tint = rememberArtColour(if (settings.artColours) t?.art else null)
-    val bg = tint ?: MaterialTheme.colorScheme.surfaceContainer
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(bg, MaterialTheme.colorScheme.surface)))) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp).wrapContentWidth().widthIn(max = 560.dp)) {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Close") }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { showLyrics = !showLyrics }) {
-                    Icon(Icons.Rounded.Lyrics, if (showLyrics) "Hide lyrics" else "Lyrics", tint = if (showLyrics) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                }
-            }
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                if (showLyrics && t != null) LyricsView(t, ui.positionMs)
-                // Square, as big as fits either way, so it never pushes the title off screen.
-                else AsyncImage(t?.art, null, Modifier.padding(vertical = 8.dp).aspectRatio(1f, matchHeightConstraintsFirst = true).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentScale = ContentScale.Crop)
-            }
-            Text(t?.title.orEmpty(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 20.dp))
-            Text(t?.artist.orEmpty(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            var dragging by remember { mutableStateOf<Float?>(null) }
-            val frac = dragging ?: if (ui.durationMs > 0) ui.positionMs.toFloat() / ui.durationMs else 0f
-            Slider(
-                value = frac.coerceIn(0f, 1f),
-                onValueChange = { dragging = it },
-                onValueChangeFinished = { dragging?.let { Graph.controller?.seekTo((it * ui.durationMs).toLong()) }; dragging = null },
-                modifier = Modifier.padding(top = 12.dp),
-            )
-            Row(Modifier.fillMaxWidth()) {
-                Text(formatTime(((dragging ?: frac) * ui.durationMs).toLong()), style = MaterialTheme.typography.labelMedium)
-                Spacer(Modifier.weight(1f))
-                Text(formatTime(ui.durationMs), style = MaterialTheme.typography.labelMedium)
-            }
-            Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { Graph.controller?.seekToPrevious() }, modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipPrevious, "Previous", Modifier.size(36.dp)) }
-                FilledIconButton(
-                    onClick = { Graph.controller?.let { if (it.isPlaying) it.pause() else it.play() } },
-                    modifier = Modifier.size(80.dp),
-                    shape = if (ui.playing) RoundedCornerShape(24.dp) else CircleShape,
-                    colors = IconButtonDefaults.filledIconButtonColors(),
-                ) {
-                    if (ui.buffering) LoadingIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.onPrimary)
-                    else Icon(if (ui.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, if (ui.playing) "Pause" else "Play", Modifier.size(44.dp))
-                }
-                IconButton(onClick = { Graph.controller?.seekToNext() }, enabled = ui.hasNext, modifier = Modifier.size(56.dp)) { Icon(Icons.Rounded.SkipNext, "Next", Modifier.size(36.dp)) }
-            }
-        }
-    }
-}
-
-/** Synced lyrics, the current line highlighted and kept in view; plain lyrics if that's all there is. */
-@Composable
-private fun LyricsView(t: Track, positionMs: Long) {
-    val lyrics by produceState<Lyrics.Result?>(null, t.id) { value = runCatching { Lyrics.find(Graph.http, t.title, t.artist, t.durationSec) }.getOrNull() ?: Lyrics.Result(emptyList(), null) }
-    val l = lyrics
-    when {
-        l == null -> LoadingIndicator()
-        l.synced.isNotEmpty() -> {
-            val current = l.synced.indexOfLast { it.atMs <= positionMs + 300 }
-            val list = rememberLazyListState()
-            LaunchedEffect(current) { if (current >= 0) list.animateScrollToItem((current - 2).coerceAtLeast(0)) }
-            LazyColumn(state = list, modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 24.dp)) {
-                itemsIndexed(l.synced) { i, line ->
-                    Text(
-                        line.text.ifBlank { "♪" },
-                        fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold,
-                        color = if (i == current) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = .35f),
-                        modifier = Modifier.clickable { Graph.controller?.seekTo(line.atMs) },
-                    )
-                }
-                item { Text("Lyrics from LRCLIB", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-        }
-        l.plain != null -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 24.dp)) {
-            item { Text(l.plain, fontSize = 20.sp, lineHeight = 28.sp) }
-            item { Text("Lyrics from LRCLIB", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp)) }
-        }
-        else -> Text("No lyrics found for this song", color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-/** A soft colour from the album art (via Palette), for the now-playing background. */
-@Composable
-private fun rememberArtColour(art: String?): Color? {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
-    val c by produceState<Color?>(null, art, dark) {
-        if (art == null) { value = null; return@produceState }
-        value = runCatching {
-            val req = coil3.request.ImageRequest.Builder(context).data(art).size(128).build()
-            val img = coil3.SingletonImageLoader.get(context).execute(req).image ?: return@runCatching null
-            val bmp = (img as? coil3.BitmapImage)?.bitmap?.copy(android.graphics.Bitmap.Config.ARGB_8888, false) ?: return@runCatching null
-            val p = androidx.palette.graphics.Palette.from(bmp).generate()
-            val swatch = (if (dark) p.darkMutedSwatch ?: p.darkVibrantSwatch else p.lightMutedSwatch ?: p.lightVibrantSwatch) ?: p.dominantSwatch
-            swatch?.rgb?.let { Color(it) }
-        }.getOrNull()
-    }
-    return c
 }

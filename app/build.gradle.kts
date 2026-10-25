@@ -80,7 +80,8 @@ dependencies {
     // Playback with a media session for the lock screen, notification and headphones.
     implementation("androidx.media3:media3-exoplayer:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
-    implementation("androidx.palette:palette-ktx:1.0.0")
+    // Full Material colour schemes from album art (MIT), the way PixelPlayer themes its player.
+    implementation("com.materialkolor:material-kolor:5.0.1")
     implementation("io.coil-kt.coil3:coil-compose:3.6.3")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")

@@ -24,6 +24,10 @@ class PlayerUi {
     var durationMs by mutableLongStateOf(0)
     var hasNext by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
+    var shuffle by mutableStateOf(false)
+    var repeat by mutableStateOf(Player.REPEAT_MODE_OFF)
+    /** Bumped when the queue changes, so the queue sheet refreshes. */
+    var queueVersion by mutableStateOf(0)
     val track: Track? get() = item?.mediaId?.let { Queue.tracks[it] }
 }
 
@@ -40,6 +44,9 @@ fun rememberPlayerUi(): PlayerUi {
             ui.durationMs = c.duration.coerceAtLeast(0)
             ui.hasNext = c.hasNextMediaItem()
             ui.error = c.playerError?.let { "Couldn't play this song. Skipping…" }
+            ui.shuffle = c.shuffleModeEnabled
+            ui.repeat = c.repeatMode
+            ui.queueVersion++
         }
         val l = object : Player.Listener { override fun onEvents(player: Player, events: Player.Events) = sync() }
         c.addListener(l)
