@@ -38,6 +38,10 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.material.icons.rounded.RemoveCircleOutline
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Pause
@@ -325,30 +329,79 @@ private fun LyricsView(t: Track, positionMs: Long) {
     }
 }
 
-/** What's playing next; tap to jump. */
+/**
+ * Spotify's queue: what's playing, then what's next. Drag a song by its handle to move it, tap
+ * to jump to it, or remove it.
+ */
 @Composable
 private fun QueueSheet(ui: PlayerUi, onDismiss: () -> Unit) {
     val c = Graph.controller ?: return
-    val items = remember(ui.item, ui.queueVersion) { (0 until c.mediaItemCount).map { c.getMediaItemAt(it) } }
+    var version by remember { mutableStateOf(0) }
+    val current = c.currentMediaItemIndex
+    val items = remember(ui.item, ui.queueVersion, version) { (0 until c.mediaItemCount).map { c.getMediaItemAt(it) } }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val rowPx = with(density) { 64.dp.toPx() }
+    var dragging by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableStateOf(0f) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text("Up next", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, bottom = 8.dp))
-        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 32.dp), state = rememberLazyListState((c.currentMediaItemIndex).coerceAtLeast(0))) {
-            itemsIndexed(items) { i, item ->
-                val tr = Queue.tracks[item.mediaId]
-                val current = i == c.currentMediaItemIndex
-                Row(
-                    Modifier.fillMaxWidth().clickable { c.seekTo(i, 0); c.play() }
-                        .background(if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AsyncImage(tr?.art, null, Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-                    Column(Modifier.padding(start = 14.dp).weight(1f)) {
-                        Text(tr?.title ?: item.mediaMetadata.title?.toString().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (current) FontWeight.Bold else FontWeight.Normal)
-                        Text(tr?.artist.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    }
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 32.dp)) {
+            items.getOrNull(current)?.let { now ->
+                item { Text("Now playing", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, bottom = 4.dp)) }
+                item { QueueRow(now, true, null, Modifier) {} }
+            }
+            if (current + 1 < items.size) item { Text("Next up", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp)) }
+            for (i in (current + 1) until items.size) {
+                val item = items[i]
+                item(key = item.mediaId + "@" + i) {
+                    val lifted = dragging == i
+                    QueueRow(
+                        item, false,
+                        onRemove = { c.removeMediaItem(i); version++ },
+                        modifier = Modifier
+                            .graphicsLayer { translationY = if (lifted) dragOffset else 0f; shadowElevation = if (lifted) 12f else 0f }
+                            .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent),
+                        handle = Modifier.pointerInput(i, items.size) {
+                            detectDragGestures(
+                                onDragStart = { dragging = i; dragOffset = 0f },
+                                onDragEnd = { dragging = null; dragOffset = 0f },
+                                onDragCancel = { dragging = null; dragOffset = 0f },
+                            ) { change, amount ->
+                                change.consume()
+                                dragOffset += amount.y
+                                val from = dragging ?: return@detectDragGestures
+                                // Each row's height dragged moves the song one place.
+                                val to = when {
+                                    dragOffset > rowPx * .6f && from + 1 < c.mediaItemCount -> from + 1
+                                    dragOffset < -rowPx * .6f && from - 1 > c.currentMediaItemIndex -> from - 1
+                                    else -> from
+                                }
+                                if (to != from) {
+                                    c.moveMediaItem(from, to)
+                                    dragOffset -= (to - from) * rowPx
+                                    dragging = to
+                                    version++
+                                }
+                            }
+                        },
+                    ) { c.seekTo(i, 0); c.play() }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun QueueRow(item: androidx.media3.common.MediaItem, current: Boolean, onRemove: (() -> Unit)?, modifier: Modifier, handle: Modifier = Modifier, onClick: () -> Unit) {
+    val tr = Queue.tracks[item.mediaId]
+    Row(modifier.fillMaxWidth().height(64.dp).clickable(onClick = onClick).padding(start = 20.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        AsyncImage(tr?.art, null, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+        Column(Modifier.padding(start = 14.dp).weight(1f)) {
+            Text(tr?.title ?: item.mediaMetadata.title?.toString().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, fontWeight = if (current) FontWeight.Bold else FontWeight.Normal)
+            Text(tr?.artist.orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+        if (onRemove != null) {
+            IconButton(onClick = onRemove) { Icon(androidx.compose.material.icons.Icons.Rounded.RemoveCircleOutline, "Remove from queue", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Box(handle.size(48.dp), contentAlignment = Alignment.Center) { Icon(androidx.compose.material.icons.Icons.Rounded.DragHandle, "Drag to move", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
