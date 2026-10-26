@@ -14,6 +14,7 @@ import io.github.shoalapps.pufferfish.ui.MusicTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Telemetry.askOnce(this)
         enableEdgeToEdge()
         // The playback notification needs this on Android 13+.
         if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)

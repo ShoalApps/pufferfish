@@ -12,6 +12,10 @@ Part of [Shoal](https://github.com/ShoalApps). GPL-3.0. Not affiliated with YouT
 - Design ideas from [PixelPlayer](https://github.com/PixelPlayerHQ/PixelPlayer) and [Meld](https://github.com/FrancescoGrazioso/Meld) / [Metrolist](https://github.com/MetrolistGroup/Metrolist) (GPL-3.0)
 - [Coil](https://github.com/coil-kt/coil) (Apache 2.0): images
 
+## Privacy and legal
+
+No ads, no tracking, nothing sent to us unless you agree to anonymous error reports. See the [privacy policy](https://shoalapps.github.io/privacy.html) and [legal notices](https://shoalapps.github.io/legal.html).
+
 ## Support
 
 Shoal is free, open source and has no ads. If you'd like to help it keep going, you can [support Shoal on Liberapay](https://liberapay.com/ShoalApps).

@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 class MusicApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        Telemetry.init(this)
         Graph.app = this
         val locale = Locale.getDefault()
         NewPipe.init(NewPipeDownloader(Graph.http), Localization.fromLocale(locale), ContentCountry(locale.country.ifBlank { "GB" }))

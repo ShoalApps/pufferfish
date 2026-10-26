@@ -78,6 +78,14 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(object : Player.Listener {
+            // Keep the home-screen widget showing what's playing.
+            override fun onEvents(p: Player, events: Player.Events) {
+                if (!events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED)) return
+                val t = p.currentMediaItem?.mediaId?.let { Queue.tracks[it] }
+                val playing = p.isPlaying
+                scope.launch(Dispatchers.IO) { io.github.shoalapps.pufferfish.widget.recordNowPlaying(this@PlaybackService, t?.title, t?.artist, t?.art, playing) }
+            }
+
             // Radio: near the end of the queue, add songs YouTube suggests after the current one.
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 if (player.mediaItemCount - player.currentMediaItemIndex > 2) return
