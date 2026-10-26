@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Favorite
@@ -136,6 +137,7 @@ fun NowPlaying(ui: PlayerUi, onClose: () -> Unit, onArtist: (io.github.shoalapps
     val t = ui.track
     var showLyrics by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
+    var showSleep by remember { mutableStateOf(false) }
     val c = Graph.controller
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         // Meld-style backdrop: the art, blurred, under a scrim in the scheme's colours.
@@ -150,6 +152,10 @@ fun NowPlaying(ui: PlayerUi, onClose: () -> Unit, onArtist: (io.github.shoalapps
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.KeyboardArrowDown, "Close") }
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Now playing", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    // Sleep timer, lit while it's set.
+                    IconButton(onClick = { showSleep = true }) {
+                        Icon(androidx.compose.material.icons.Icons.Rounded.Bedtime, "Sleep timer", tint = if (SleepTimer.endsAt != null || SleepTimer.endOfTrack) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                     }
                     IconButton(onClick = { showQueue = true }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, "Queue") }
                 }
@@ -167,6 +173,7 @@ fun NowPlaying(ui: PlayerUi, onClose: () -> Unit, onArtist: (io.github.shoalapps
         }
     }
     if (showQueue && c != null) QueueSheet(ui) { showQueue = false }
+    if (showSleep) SleepSheet { showSleep = false }
 }
 
 @Composable
@@ -342,6 +349,25 @@ private fun QueueSheet(ui: PlayerUi, onDismiss: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SleepSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text("Sleep timer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 24.dp, bottom = 8.dp))
+        val ends = SleepTimer.endsAt
+        if (ends != null || SleepTimer.endOfTrack) {
+            val left = ends?.let { ((it - System.currentTimeMillis()) / 60_000).coerceAtLeast(0) + 1 }
+            Text(if (left != null) "Stopping in about $left min" else "Stopping at the end of this song", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 24.dp, bottom = 8.dp))
+        }
+        Column(Modifier.padding(bottom = 24.dp)) {
+            listOf(5, 10, 15, 30, 45, 60).forEach { m ->
+                Text("$m minutes", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth().clickable { SleepTimer.set(m); onDismiss() }.padding(horizontal = 24.dp, vertical = 14.dp))
+            }
+            Text("End of song", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth().clickable { SleepTimer.atEndOfTrack(); onDismiss() }.padding(horizontal = 24.dp, vertical = 14.dp))
+            if (ends != null || SleepTimer.endOfTrack) Text("Turn off timer", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().clickable { SleepTimer.cancel(); onDismiss() }.padding(horizontal = 24.dp, vertical = 14.dp))
         }
     }
 }

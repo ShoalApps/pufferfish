@@ -14,6 +14,7 @@ import io.github.shoalapps.pufferfish.Graph
 import io.github.shoalapps.pufferfish.data.Track
 import io.github.shoalapps.pufferfish.player.Queue
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** What the playback service is doing, kept up to date for the screens. */
 class PlayerUi {
@@ -103,4 +104,42 @@ fun addToQueue(t: Track) {
 suspend fun startRadio(t: Track) {
     val more = runCatching { io.github.shoalapps.pufferfish.data.Music.related(t) }.getOrDefault(emptyList())
     playAll(listOf(t) + more.take(25), 0)
+}
+
+/** Spotify's sleep timer: stop after some minutes, or at the end of this song. */
+object SleepTimer {
+    var endsAt by mutableStateOf<Long?>(null)
+        private set
+    var endOfTrack by mutableStateOf(false)
+        private set
+    private var job: kotlinx.coroutines.Job? = null
+    private val scope = kotlinx.coroutines.MainScope()
+    private var listener: Player.Listener? = null
+
+    fun set(minutes: Int) {
+        cancel()
+        endsAt = System.currentTimeMillis() + minutes * 60_000L
+        job = scope.launch {
+            kotlinx.coroutines.delay(minutes * 60_000L)
+            Graph.controller?.pause()
+            endsAt = null
+        }
+    }
+
+    fun atEndOfTrack() {
+        cancel()
+        val c = Graph.controller ?: return
+        endOfTrack = true
+        listener = object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) { c.pause(); cancel() }
+            }
+            override fun onPlaybackStateChanged(state: Int) { if (state == Player.STATE_ENDED) cancel() }
+        }.also(c::addListener)
+    }
+
+    fun cancel() {
+        job?.cancel(); job = null; endsAt = null
+        listener?.let { Graph.controller?.removeListener(it) }; listener = null; endOfTrack = false
+    }
 }

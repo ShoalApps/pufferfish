@@ -196,10 +196,16 @@ private fun greeting(): String {
 @Composable
 private fun HomeScreen(nav: Nav) {
     val lib by Graph.library.data.collectAsState()
+    val scope = rememberCoroutineScope()
     val recent = remember(lib.history) { lib.history.map { it.track }.distinctBy { it.id } }
     val lastTrack = recent.firstOrNull()
     val charts by produceState<List<Track>?>(null) { value = runCatching { Music.charts() }.getOrDefault(emptyList()) }
     val moreLike by produceState<List<Track>?>(null, lastTrack?.id) { value = lastTrack?.let { runCatching { Music.related(it) }.getOrNull() } }
+    val perRow = if (LocalConfiguration.current.screenWidthDp >= 840) 4 else 2
+    val mixSeeds = remember(lib.history, lib.liked) {
+        Graph.library.topArtists().take(4).mapNotNull { (name, _) -> recent.firstOrNull { it.artist == name }?.let { "$name Mix" to it } } +
+            listOfNotNull(lib.liked.randomOrNull()?.let { "Liked Songs Mix" to it })
+    }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -218,7 +224,7 @@ private fun HomeScreen(nav: Nav) {
         } else item {
             // Spotify's shortcut grid: your eight most recent, two to a row.
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                recent.take(8).chunked(2).forEach { pair ->
+                recent.take(8).chunked(perRow).forEach { pair ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         pair.forEach { t ->
                             Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(10.dp)).clickable { playAll(listOf(t) + recent.filter { it.id != t.id }.take(20), 0) }) {
@@ -228,7 +234,7 @@ private fun HomeScreen(nav: Nav) {
                                 }
                             }
                         }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                        repeat(perRow - pair.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -237,11 +243,17 @@ private fun HomeScreen(nav: Nav) {
         val top = Graph.library.topArtists()
         if (top.isNotEmpty()) shelf("Your top artists") {
             items(top) { (name, url) ->
-                val pic = recent.firstOrNull { it.artist == name }?.art
+                val pic = lib.artists.firstOrNull { it.name.equals(name, true) }?.art ?: recent.firstOrNull { it.artist == name }?.art
                 Column(Modifier.width(120.dp).clickable(enabled = url != null) { nav.open(Page.ArtistPage(Artist(url!!, name, pic))) }, horizontalAlignment = Alignment.CenterHorizontally) {
                     AsyncImage(pic, null, Modifier.size(112.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentScale = ContentScale.Crop)
                     Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                 }
+            }
+        }
+        // Made for you: a mix per favourite artist, and one from your Liked Songs (each starts a radio).
+        if (mixSeeds.isNotEmpty()) shelf("Made for you") {
+            items(mixSeeds, key = { "mix" + it.first }) { (title, seed) ->
+                MixCard(title, seed) { scope.launch { startRadio(seed) } }
             }
         }
         moreLike?.takeIf { it.isNotEmpty() }?.let { list -> shelf("More like ${lastTrack?.title}") { items(list.take(15), key = { "m" + it.id }) { t -> TrackCard(t) { playAll(list, list.indexOf(t)) } } } }
@@ -261,6 +273,20 @@ private fun LazyListScope.shelf(title: String, content: LazyListScope.() -> Unit
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 10.dp))
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) { content() }
         }
+    }
+}
+
+/** A mix's cover: the seed song's art under a band of colour with the mix's name, like Spotify's daily mixes. */
+@Composable
+private fun MixCard(title: String, seed: Track, onClick: () -> Unit) {
+    Column(Modifier.width(144.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick)) {
+        Box(Modifier.size(144.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+            AsyncImage(seed.art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(MaterialTheme.colorScheme.primary.copy(alpha = .88f)).padding(horizontal = 8.dp, vertical = 6.dp)) {
+                Text(title, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Text("With ${seed.artist} and more", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
     }
 }
 
