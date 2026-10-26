@@ -87,6 +87,7 @@ dependencies {
     implementation("com.github.TeamNewPipe:NewPipeExtractor:e8f89145a830b4d6cae32412007f24ea8b36c73a")
     // Playback with a media session for the lock screen, notification and headphones.
     implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation("androidx.media3:media3-database:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
     // Full Material colour schemes from album art (MIT), the way PixelPlayer themes its player.
     implementation("com.materialkolor:material-kolor:5.0.1")

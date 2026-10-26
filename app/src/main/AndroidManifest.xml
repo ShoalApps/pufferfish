@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <queries>
         <package android:name="io.github.shoalapps.shoal" />
@@ -35,6 +36,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Offline downloads. -->
+        <service
+            android:name=".player.PufferDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <service
             android:name=".player.PlaybackService"
             android:exported="true"

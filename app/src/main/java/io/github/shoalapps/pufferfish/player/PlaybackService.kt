@@ -28,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** The queue's songs by id, and their resolved stream addresses (which last a few hours). */
 object Queue {
+    /** Queue items point at pufferfish://track/<id>; the real audio address is looked up when it plays. */
+    const val SCHEME = "pufferfish"
     val tracks = ConcurrentHashMap<String, Track>()
     private val streams = ConcurrentHashMap<String, Pair<Long, String>>()
     /** Songs YouTube suggests after each one, for the radio that keeps playing after the queue. */
@@ -37,7 +39,7 @@ object Queue {
         tracks[t.id] = t
         return MediaItem.Builder()
             .setMediaId(t.id)
-            .setUri("pufferfish://track/${t.id}")
+            .setUri("$SCHEME://track/${t.id}")
             .setMediaMetadata(
                 MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist)
                     .setArtworkUri(t.art?.let(Uri::parse)).setDurationMs(if (t.durationSec > 0) t.durationSec * 1000 else null)
@@ -48,6 +50,9 @@ object Queue {
 
     /** Called on the loading thread when a song is about to play. */
     fun resolve(id: String): String {
+        // Debug builds can pretend to be offline: adb shell setprop debug.pufferfish.offline 1
+        if (io.github.shoalapps.pufferfish.BuildConfig.DEBUG && runCatching { Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, "debug.pufferfish.offline") == "1" }.getOrDefault(false))
+            throw java.io.IOException("Offline (debug)")
         streams[id]?.let { (at, url) -> if (System.currentTimeMillis() - at < 3 * 3600_000L) return url }
         val track = tracks[id] ?: error("Unknown song")
         val p = runBlocking { Music.playable(track) }
@@ -69,10 +74,11 @@ class PlaybackService : MediaSessionService() {
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
             .setAllowCrossProtocolRedirects(true)
         val resolving = ResolvingDataSource.Factory(http) { spec ->
-            if (spec.uri.scheme == "pufferfish") spec.withUri(Uri.parse(Queue.resolve(spec.uri.lastPathSegment!!))) else spec
+            if (spec.uri.scheme == Queue.SCHEME) spec.withUri(Uri.parse(Queue.resolve(spec.uri.lastPathSegment!!))) else spec
         }
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resolving))
+            // Downloaded songs play from the phone; everything else streams.
+            .setMediaSourceFactory(DefaultMediaSourceFactory(Downloads.also { it.init(this) }.playbackFactory(resolving)))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)

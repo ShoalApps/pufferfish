@@ -43,6 +43,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.History
@@ -121,6 +123,7 @@ sealed interface Page {
     data class ArtistPage(val artist: Artist) : Page
     data class PlaylistPage(val id: String) : Page
     data object Liked : Page
+    data object Downloaded : Page
     data class Browse(val title: String, val query: String) : Page
     data object Settings : Page
 }
@@ -166,6 +169,7 @@ fun MusicRoot() {
                             is Page.ArtistPage -> ArtistScreen(p.artist, nav)
                             is Page.PlaylistPage -> PlaylistScreen(p.id, nav)
                             Page.Liked -> LikedScreen(nav)
+                            Page.Downloaded -> DownloadedScreen(nav)
                             is Page.Browse -> BrowseScreen(p.title, p.query, nav)
                             Page.Settings -> SettingsScreen(onBack = nav.back)
                         }
@@ -472,10 +476,14 @@ private fun LibraryScreen(nav: Nav) {
                 IconButton(onClick = { creating = true }) { Icon(Icons.Rounded.Add, "Create playlist") }
             }
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Playlists", "Artists", "Albums").forEach { f ->
+                listOf("Playlists", "Artists", "Albums", "Downloaded").forEach { f ->
                     FilterChip(selected = filter == f, onClick = { filter = if (filter == f) null else f }, label = { Text(f) }, shape = RoundedCornerShape(50))
                 }
             }
+        }
+        val downloadedCount = io.github.shoalapps.pufferfish.player.Downloads.done.value.size
+        if (filter == "Downloaded" || (filter == null && downloadedCount > 0)) item {
+            LibraryRow("Downloaded", "On this phone · ${songs(downloadedCount)}", null, downloaded = true) { nav.open(Page.Downloaded) }
         }
         if (filter == null || filter == "Playlists") {
             item { LibraryRow("Liked Songs", "Playlist · ${songs(lib.liked.size)}", null, liked = true) { nav.open(Page.Liked) } }
@@ -491,14 +499,15 @@ private fun LibraryScreen(nav: Nav) {
 }
 
 @Composable
-private fun LibraryRow(title: String, subtitle: String, art: String?, round: Boolean = false, liked: Boolean = false, onClick: () -> Unit) {
+private fun LibraryRow(title: String, subtitle: String, art: String?, round: Boolean = false, liked: Boolean = false, downloaded: Boolean = false, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         val shape = if (round) CircleShape else RoundedCornerShape(10.dp)
         Box(Modifier.size(64.dp).clip(shape).background(
-            if (liked) Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)) else Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.surfaceContainerHigh)),
+            if (liked || downloaded) Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary)) else Brush.linearGradient(listOf(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.surfaceContainerHigh)),
         ), contentAlignment = Alignment.Center) {
             when {
                 liked -> Icon(Icons.Rounded.Favorite, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(28.dp))
+                downloaded -> Icon(Icons.Rounded.DownloadDone, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(28.dp))
                 art != null -> AsyncImage(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 else -> Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -517,7 +526,7 @@ private fun LibraryRow(title: String, subtitle: String, art: String?, round: Boo
 private fun CollectionHeader(
     title: String, subtitle: String, art: String?, round: Boolean, nav: Nav, tracks: List<Track>,
     saveIcon: ImageVector? = null, saved: Boolean = false, onSave: (() -> Unit)? = null, extra: (@Composable () -> Unit)? = null,
-    cover: (@Composable () -> Unit)? = null,
+    cover: (@Composable () -> Unit)? = null, downloadable: Boolean = false,
 ) {
     val c = Graph.controller
     val ui = rememberPlayerUi()
@@ -535,6 +544,17 @@ private fun CollectionHeader(
                     Icon(saveIcon, if (saved) "Saved" else "Save", tint = if (saved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 extra?.invoke()
+                if (downloadable && tracks.isNotEmpty()) {
+                    // Spotify's download switch for a whole list.
+                    val done by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
+                    val pending by io.github.shoalapps.pufferfish.player.Downloads.pending.collectAsState()
+                    val all = tracks.all { it.id in done }
+                    val some = tracks.any { it.id in pending }
+                    IconButton(onClick = { if (all) tracks.forEach { io.github.shoalapps.pufferfish.player.Downloads.remove(it.id) } else io.github.shoalapps.pufferfish.player.Downloads.addAll(tracks) }) {
+                        if (some && !all) LoadingIndicator(Modifier.size(24.dp))
+                        else Icon(if (all) Icons.Rounded.DownloadDone else Icons.Rounded.Download, if (all) "Remove downloads" else "Download", tint = if (all) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { playShuffled(tracks) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.Shuffle, "Shuffle play") }
                 PlayButton(playing = playingThis, big = true) {
@@ -568,7 +588,7 @@ private fun AlbumScreen(album: Album, nav: Nav) {
     val state by produceState<Result<List<Track>>?>(null, album.url) { value = runCatching { Music.albumTracks(album.url).second } }
     val tracks = state?.getOrNull().orEmpty()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-        item { CollectionHeader(album.title, album.artist, album.art, false, nav, tracks, Icons.Rounded.Add, lib.albums.any { it.url == album.url }, { Graph.library.toggleAlbum(album) }) }
+        item { CollectionHeader(album.title, album.artist, album.art, false, nav, tracks, Icons.Rounded.Add, lib.albums.any { it.url == album.url }, { Graph.library.toggleAlbum(album) }, downloadable = true) }
         LoadingOr(state) { list -> itemsIndexed(list) { i, t -> TrackRow(t, nav, number = i + 1) { playAll(list, i) } } }()
     }
 }
@@ -596,13 +616,31 @@ private fun LikedScreen(nav: Nav) {
     val tracks = lib.liked
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            CollectionHeader("Liked Songs", songs(tracks.size), null, false, nav, tracks, cover = {
+            CollectionHeader("Liked Songs", songs(tracks.size), null, false, nav, tracks, downloadable = true, cover = {
                 Box(Modifier.size(220.dp).clip(RoundedCornerShape(12.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary))), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Favorite, null, Modifier.size(88.dp), tint = MaterialTheme.colorScheme.onPrimary)
                 }
             })
         }
         if (tracks.isEmpty()) item { Text("Songs you like appear here. Tap the heart on any song.", Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        itemsIndexed(tracks, key = { _, t -> t.id }) { i, t -> TrackRow(t, nav) { playAll(tracks, i) } }
+    }
+}
+
+/** Songs on this phone: they play with no connection. */
+@Composable
+private fun DownloadedScreen(nav: Nav) {
+    val done by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
+    val tracks = remember(done) { io.github.shoalapps.pufferfish.player.Downloads.tracks() }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        item {
+            CollectionHeader("Downloaded", "${songs(tracks.size)} · play with no connection", null, false, nav, tracks, cover = {
+                Box(Modifier.size(220.dp).clip(RoundedCornerShape(12.dp)).background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary))), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.DownloadDone, null, Modifier.size(88.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            })
+        }
+        if (tracks.isEmpty()) item { Text("Download songs, albums or playlists from their menus and they'll play here without a connection.", Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         itemsIndexed(tracks, key = { _, t -> t.id }) { i, t -> TrackRow(t, nav) { playAll(tracks, i) } }
     }
 }
@@ -615,7 +653,7 @@ private fun PlaylistScreen(id: String, nav: Nav) {
     var deleting by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            CollectionHeader(p.name, songs(p.tracks.size), p.tracks.firstOrNull()?.art, false, nav, p.tracks, extra = {
+            CollectionHeader(p.name, songs(p.tracks.size), p.tracks.firstOrNull()?.art, false, nav, p.tracks, downloadable = true, extra = {
                 IconButton(onClick = { renaming = true }) { Icon(Icons.Rounded.Edit, "Rename") }
                 IconButton(onClick = { deleting = true }) { Icon(Icons.Rounded.Delete, "Delete playlist") }
             })
@@ -640,6 +678,7 @@ fun TrackRow(t: Track, nav: Nav, number: Int? = null, playlistId: String? = null
     val lib by Graph.library.data.collectAsState()
     val current = rememberPlayerUi().item?.mediaId == t.id
     val liked = lib.liked.any { it.id == t.id }
+    val downloads by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (number != null) Text("$number", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(28.dp))
         else AsyncImage(t.art, null, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentScale = ContentScale.Crop)
@@ -647,6 +686,7 @@ fun TrackRow(t: Track, nav: Nav, number: Int? = null, playlistId: String? = null
             Text(t.title, style = MaterialTheme.typography.bodyLarge, color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (liked) Icon(Icons.Rounded.Favorite, "Liked", Modifier.size(13.dp).padding(end = 3.dp), tint = MaterialTheme.colorScheme.primary)
+                if (t.id in downloads) Icon(Icons.Rounded.DownloadDone, "Downloaded", Modifier.size(14.dp).padding(end = 3.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(listOfNotNull(t.artist.ifBlank { null }, t.durationSec.takeIf { it > 0 }?.let { formatTime(it * 1000) }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
@@ -675,6 +715,9 @@ private fun TrackMenu(t: Track, playlistId: String?, nav: Nav, onDismiss: () -> 
         if (!addTo) Column(Modifier.padding(bottom = 24.dp)) {
             MenuItem(if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (liked) "Remove from Liked Songs" else "Add to Liked Songs") { Graph.library.toggleLike(t); onDismiss() }
             MenuItem(Icons.AutoMirrored.Rounded.PlaylistAdd, "Add to playlist") { addTo = true }
+            val downloaded by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
+            if (t.id in downloaded) MenuItem(Icons.Rounded.DownloadDone, "Remove download") { io.github.shoalapps.pufferfish.player.Downloads.remove(t.id); onDismiss() }
+            else MenuItem(Icons.Rounded.Download, "Download") { io.github.shoalapps.pufferfish.player.Downloads.add(t); onDismiss() }
             if (playlistId != null) MenuItem(Icons.Rounded.RemoveCircleOutline, "Remove from this playlist") { Graph.library.removeFrom(playlistId, t.id); onDismiss() }
             MenuItem(Icons.Rounded.SkipNext, "Play next") { playNext(t); onDismiss() }
             MenuItem(Icons.AutoMirrored.Rounded.QueueMusic, "Add to queue") { addToQueue(t); onDismiss() }
