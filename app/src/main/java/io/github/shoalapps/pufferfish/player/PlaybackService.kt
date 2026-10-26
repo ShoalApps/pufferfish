@@ -100,9 +100,12 @@ class PlaybackService : MediaSessionService() {
                 val id = item?.mediaId ?: return
                 scope.launch(Dispatchers.IO) {
                     val next = Queue.related[id] ?: runCatching { Queue.resolve(id); Queue.related[id] }.getOrNull() ?: return@launch
-                    val known = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
-                    val fresh = next.filter { it.id !in known && it.durationSec in 1..900 }.take(10)
-                    launch(Dispatchers.Main) { player.addMediaItems(fresh.map(Queue::item)) }
+                    // The player may only be touched on the main thread (reading the queue too).
+                    launch(Dispatchers.Main) {
+                        val known = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+                        val fresh = next.filter { it.id !in known && it.durationSec in 1..900 }.take(10)
+                        if (fresh.isNotEmpty()) player.addMediaItems(fresh.map(Queue::item))
+                    }
                 }
             }
         })

@@ -44,7 +44,10 @@ import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import io.github.shoalapps.pufferfish.R
 
-/** What's playing, with its cover and controls. */
+/**
+ * The player, pared right down: the seek bar's water and the three controls. While a song plays
+ * the water ripples with a fish mid-leap; paused, it's a calm line. Tap the water to open the app.
+ */
 class PufferfishWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
 
@@ -53,48 +56,129 @@ class PufferfishWidget : GlanceAppWidget() {
         val title = p.getString("title", null)
         val artist = p.getString("artist", null)
         val playing = p.getBoolean("playing", false)
-        val art = loadBitmap(context, p.getString("art", null))
         val launch = actionStartActivity(Intent(context, io.github.shoalapps.pufferfish.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         provideContent {
             GlanceTheme {
+                val size = androidx.glance.LocalSize.current
+                val density = context.resources.displayMetrics.density
+                val w = ((size.width.value - 28) * density).toInt().coerceAtLeast(64)
+                val h = (40 * density).toInt()
+                val (wave, fish) = water(w, h, density, playing)
                 WidgetSurface {
-                    Row(GlanceModifier.fillMaxWidth().defaultWeight().clickable(launch), verticalAlignment = Alignment.CenterVertically) {
-                        if (art != null) Image(ImageProvider(art), null, GlanceModifier.size(64.dp).cornerRadius(14.dp), contentScale = ContentScale.Crop)
-                        else Box(GlanceModifier.size(64.dp).cornerRadius(14.dp).background(GlanceTheme.colors.primaryContainer), contentAlignment = Alignment.Center) {
-                            Image(ImageProvider(R.drawable.ic_launcher_mono), null, GlanceModifier.size(56.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.onPrimaryContainer))
-                        }
-                        Column(GlanceModifier.defaultWeight().padding(start = 12.dp)) {
-                            Text(title ?: "Pufferfish", style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-                            Text(artist ?: "Tap to find something to play", style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp), maxLines = 1)
-                        }
+                    Spacer(GlanceModifier.defaultWeight())
+                    // The water, tinted with the wallpaper's colours. Read out as what's playing.
+                    Box(
+                        GlanceModifier.fillMaxWidth().height(40.dp).clickable(launch),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Image(ImageProvider(wave), title?.let { "$it by ${artist.orEmpty()}" + if (playing) ", playing" else ", paused" } ?: "Pufferfish, nothing playing", GlanceModifier.fillMaxWidth().height(40.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.primary))
+                        if (fish != null) Image(ImageProvider(fish), null, GlanceModifier.fillMaxWidth().height(40.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.tertiary))
                     }
-                    Row(GlanceModifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        WidgetButton(R.drawable.ic_w_prev, "Previous", actionRunCallback<MediaAction>(actionParametersOf(MediaAction.KEY to "prev")), GlanceModifier.defaultWeight())
-                        WidgetButton(if (playing) R.drawable.ic_w_pause else R.drawable.ic_w_play, if (playing) "Pause" else "Play", actionRunCallback<MediaAction>(actionParametersOf(MediaAction.KEY to "toggle")), GlanceModifier.defaultWeight())
-                        WidgetButton(R.drawable.ic_w_next, "Next", actionRunCallback<MediaAction>(actionParametersOf(MediaAction.KEY to "next")), GlanceModifier.defaultWeight())
+                    Spacer(GlanceModifier.defaultWeight())
+                    Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        PlayerButton(R.drawable.ic_w_prev, "Previous", actionRunCallback<MediaAction>(actionParametersOf(MediaAction.KEY to "prev")), big = false, GlanceModifier.defaultWeight())
+                        PlayerButton(if (playing) R.drawable.ic_w_pause else R.drawable.ic_w_play, if (playing) "Pause" else "Play", actionRunCallback<MediaAction>(actionParametersOf(MediaAction.KEY to "toggle")), big = true, GlanceModifier.defaultWeight())
+                        PlayerButton(R.drawable.ic_w_next, "Next", actionRunCallback<MediaAction>(actionParametersOf(MediaAction.KEY to "next")), big = false, GlanceModifier.defaultWeight())
                     }
+                    Spacer(GlanceModifier.defaultWeight())
                 }
             }
         }
     }
 }
 
+/** A control: round, the play button bigger and filled with the main colour. */
+@Composable
+private fun PlayerButton(icon: Int, label: String, action: Action, big: Boolean, modifier: GlanceModifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Box(
+            GlanceModifier.size(if (big) 60.dp else 52.dp).cornerRadius(if (big) 30.dp else 26.dp)
+                .background(if (big) GlanceTheme.colors.primary else GlanceTheme.colors.secondaryContainer).clickable(action),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(ImageProvider(icon), label, GlanceModifier.size(28.dp), colorFilter = ColorFilter.tint(if (big) GlanceTheme.colors.onPrimary else GlanceTheme.colors.onSecondaryContainer))
+        }
+    }
+}
+
+/**
+ * The seek bar's water as two white masks (tinted by the widget): the wave, and a fish in
+ * mid-leap with a splash below it. Paused, a flat line and no fish.
+ */
+private fun water(w: Int, h: Int, density: Float, playing: Boolean): Pair<android.graphics.Bitmap, android.graphics.Bitmap?> {
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE; style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 4 * density; strokeCap = android.graphics.Paint.Cap.ROUND; strokeJoin = android.graphics.Paint.Join.ROUND
+    }
+    val mid = h * 0.62f
+    val amp = if (playing) 3.5f * density else 0f
+    val wavelength = 34 * density
+    fun y(x: Float) = mid + amp * kotlin.math.sin(x / wavelength * 2 * Math.PI).toFloat()
+    val wave = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ALPHA_8)
+    android.graphics.Canvas(wave).apply {
+        val path = android.graphics.Path()
+        val pad = paint.strokeWidth
+        path.moveTo(pad, y(pad))
+        var x = pad
+        while (x < w - pad) { x = (x + 2 * density).coerceAtMost(w - pad); path.lineTo(x, y(x)) }
+        drawPath(path, paint)
+    }
+    if (!playing) return wave to null
+    val fish = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ALPHA_8)
+    android.graphics.Canvas(fish).apply {
+        val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE }
+        val r = 6.5f * density
+        // Rising out of the water, a third of the way along, nose tipped up.
+        val cx = w * 0.36f
+        val cy = mid - 13 * density
+        save()
+        rotate(-22f, cx, cy)
+        val body = android.graphics.Path().apply {
+            moveTo(cx - r * 0.75f, cy)
+            quadTo(cx - r * 1.3f, cy - r * 0.2f, cx - r * 1.65f, cy - r * 0.7f)
+            quadTo(cx - r * 1.4f, cy, cx - r * 1.65f, cy + r * 0.7f)
+            quadTo(cx - r * 1.3f, cy + r * 0.2f, cx - r * 0.75f, cy)
+            close()
+            moveTo(cx - r * 0.35f, cy - r * 0.55f)
+            quadTo(cx - r * 0.1f, cy - r * 1.05f, cx + r * 0.35f, cy - r * 0.6f)
+            close()
+            addOval(cx - r, cy - r * 0.72f, cx + r, cy + r * 0.72f, android.graphics.Path.Direction.CW)
+        }
+        drawPath(body, fill)
+        // The eye, cut out.
+        fill.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
+        drawCircle(cx + r * 0.5f, cy - r * 0.18f, r * 0.2f, fill)
+        fill.xfermode = null
+        restore()
+        // Droplets where it left the water.
+        val sx = cx - 14 * density
+        for (d in -1..1) drawCircle(sx + d * 4 * density, y(sx) - (if (d == 0) 7f else 4.5f) * density, 1.7f * density, fill)
+    }
+    return wave to fish
+}
+
 /** Sends a widget button press to the player. */
 class MediaAction : ActionCallback {
     companion object { val KEY = ActionParameters.Key<String>("media") }
 
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+    override suspend fun onAction(receiverContext: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        // Widget actions arrive in a broadcast receiver, which Android doesn't let bind to the
+        // player's service; the app's own context can.
+        val context = receiverContext.applicationContext
         val token = androidx.media3.session.SessionToken(context, android.content.ComponentName(context, io.github.shoalapps.pufferfish.player.PlaybackService::class.java))
         val future = androidx.media3.session.MediaController.Builder(context, token).buildAsync()
         val c = kotlinx.coroutines.suspendCancellableCoroutine<androidx.media3.session.MediaController?> { cont ->
             future.addListener({ cont.resumeWith(Result.success(runCatching { future.get() }.getOrNull())) }, context.mainExecutor)
         } ?: return
-        when (parameters[KEY]) {
-            "prev" -> c.seekToPrevious()
-            "next" -> c.seekToNext()
-            else -> if (c.isPlaying) c.pause() else { if (c.mediaItemCount > 0) { c.prepare(); c.play() } }
+        // The player only takes commands on the main thread.
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            when (parameters[KEY]) {
+                "prev" -> c.seekToPrevious()
+                "next" -> c.seekToNext()
+                else -> if (c.isPlaying) c.pause() else { if (c.mediaItemCount > 0) { c.prepare(); c.play() } }
+            }
+            androidx.media3.session.MediaController.releaseFuture(future)
         }
-        androidx.media3.session.MediaController.releaseFuture(future)
     }
 }
 
