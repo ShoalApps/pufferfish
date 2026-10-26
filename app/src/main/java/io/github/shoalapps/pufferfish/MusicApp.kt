@@ -1,4 +1,4 @@
-package io.github.shoalapps.swordfish
+package io.github.shoalapps.pufferfish
 
 import android.app.Application
 import android.content.ComponentName
@@ -8,9 +8,9 @@ import androidx.compose.runtime.setValue
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
-import io.github.shoalapps.swordfish.data.NewPipeDownloader
-import io.github.shoalapps.swordfish.data.Store
-import io.github.shoalapps.swordfish.player.PlaybackService
+import io.github.shoalapps.pufferfish.data.NewPipeDownloader
+import io.github.shoalapps.pufferfish.data.Store
+import io.github.shoalapps.pufferfish.player.PlaybackService
 import okhttp3.OkHttpClient
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.localization.ContentCountry

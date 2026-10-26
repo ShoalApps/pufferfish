@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 
-package io.github.shoalapps.swordfish.ui
+package io.github.shoalapps.pufferfish.ui
 
 import android.content.Intent
 import android.net.Uri
@@ -36,8 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.shoalapps.swordfish.Graph
-import io.github.shoalapps.swordfish.ShoalManager
+import io.github.shoalapps.pufferfish.Graph
+import io.github.shoalapps.pufferfish.ShoalManager
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -59,18 +59,18 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
             item { Toggle("Colours from the album art", "With a song playing, the whole app takes its colours from the cover", s.artColours) { v -> Graph.store.updateSettings { it.copy(artColours = v) } } }
-            item { Toggle("Wallpaper colours", "Otherwise Swordfish blue (Android 12 and later)", s.dynamicColor) { v -> Graph.store.updateSettings { it.copy(dynamicColor = v) } } }
+            item { Toggle("Wallpaper colours", "Otherwise YouTube Music red, softened (Android 12 and later)", s.dynamicColor) { v -> Graph.store.updateSettings { it.copy(dynamicColor = v) } } }
             item { Header("Updates") }
             item { Link(if (ShoalManager.installed(context)) "Check for updates in Shoal" else "Get Shoal for updates", "Shoal installs and updates all the Shoal apps") { ShoalManager.checkForUpdates(context) } }
             item { Header("About") }
-            item { Link("Source code", "github.com/ShoalApps/swordfish · GPL-3.0") { open("https://github.com/ShoalApps/swordfish") } }
+            item { Link("Source code", "github.com/ShoalApps/pufferfish · GPL-3.0") { open("https://github.com/ShoalApps/pufferfish") } }
             item { Link("NewPipeExtractor", "YouTube Music search and streams · GPL-3.0") { open("https://github.com/TeamNewPipe/NewPipeExtractor") } }
             item { Link("Lyrics", "BetterLyrics, LRCLIB and NetEase Cloud Music") { open("https://lrclib.net") } }
             item { Link("MaterialKolor", "Colours from album art · MIT") { open("https://github.com/jordond/materialkolor") } }
             item { Link("PixelPlayer and Meld", "Design ideas for the player · GPL-3.0") { open("https://github.com/PixelPlayerHQ/PixelPlayer") } }
             item {
                 Text(
-                    "Swordfish is an independent project, not affiliated with, endorsed by or sponsored by YouTube, Google or any lyrics provider.",
+                    "Pufferfish is an independent project, not affiliated with, endorsed by or sponsored by YouTube, Google or any lyrics provider.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(20.dp),
                 )

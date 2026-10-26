@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Swordfish's colours; Android 12+ swaps these for wallpaper colours (values-v31). -->
-    <color name="icon_bg">#FFD2E4FF</color>
-    <color name="icon_shape">#FF36618E</color>
+    <!-- The icon's colours: its service's brand colours, softened the Material You way. -->
+    <color name="icon_bg">#FFFFE1DF</color>
+    <color name="icon_shape">#FFDD4649</color>
     <color name="icon_glyph">#FFFFFFFF</color>
 </resources>

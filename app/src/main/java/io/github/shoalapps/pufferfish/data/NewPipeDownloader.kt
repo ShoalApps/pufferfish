@@ -1,4 +1,4 @@
-package io.github.shoalapps.swordfish.data
+package io.github.shoalapps.pufferfish.data
 
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody

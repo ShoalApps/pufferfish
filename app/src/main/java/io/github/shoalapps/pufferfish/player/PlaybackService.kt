@@ -1,4 +1,4 @@
-package io.github.shoalapps.swordfish.player
+package io.github.shoalapps.pufferfish.player
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -16,9 +16,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import io.github.shoalapps.swordfish.MainActivity
-import io.github.shoalapps.swordfish.data.Music
-import io.github.shoalapps.swordfish.data.Track
+import io.github.shoalapps.pufferfish.MainActivity
+import io.github.shoalapps.pufferfish.data.Music
+import io.github.shoalapps.pufferfish.data.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,7 +37,7 @@ object Queue {
         tracks[t.id] = t
         return MediaItem.Builder()
             .setMediaId(t.id)
-            .setUri("swordfish://track/${t.id}")
+            .setUri("pufferfish://track/${t.id}")
             .setMediaMetadata(
                 MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist)
                     .setArtworkUri(t.art?.let(Uri::parse)).setDurationMs(if (t.durationSec > 0) t.durationSec * 1000 else null)
@@ -69,7 +69,7 @@ class PlaybackService : MediaSessionService() {
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
             .setAllowCrossProtocolRedirects(true)
         val resolving = ResolvingDataSource.Factory(http) { spec ->
-            if (spec.uri.scheme == "swordfish") spec.withUri(Uri.parse(Queue.resolve(spec.uri.lastPathSegment!!))) else spec
+            if (spec.uri.scheme == "pufferfish") spec.withUri(Uri.parse(Queue.resolve(spec.uri.lastPathSegment!!))) else spec
         }
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(resolving))

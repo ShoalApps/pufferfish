@@ -1,4 +1,4 @@
-# Swordfish
+# Pufferfish
 
 A YouTube Music player in Material 3 Expressive: search songs, albums and artists, background playback with a media notification, a radio that keeps going after your queue, karaoke-style word-timed lyrics, and the whole app coloured from the album art.
 

@@ -1,4 +1,4 @@
-package io.github.shoalapps.swordfish.data
+package io.github.shoalapps.pufferfish.data
 
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow

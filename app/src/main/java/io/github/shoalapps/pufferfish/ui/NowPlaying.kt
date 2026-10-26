@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
-package io.github.shoalapps.swordfish.ui
+package io.github.shoalapps.pufferfish.ui
 
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
@@ -88,10 +88,10 @@ import coil3.compose.AsyncImage
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.themeColorOrNull
-import io.github.shoalapps.swordfish.Graph
-import io.github.shoalapps.swordfish.data.Lyrics
-import io.github.shoalapps.swordfish.data.Track
-import io.github.shoalapps.swordfish.player.Queue
+import io.github.shoalapps.pufferfish.Graph
+import io.github.shoalapps.pufferfish.data.Lyrics
+import io.github.shoalapps.pufferfish.data.Track
+import io.github.shoalapps.pufferfish.player.Queue
 
 /**
  * A full Material colour scheme from the album art (seed picked with Material's quantiser), the

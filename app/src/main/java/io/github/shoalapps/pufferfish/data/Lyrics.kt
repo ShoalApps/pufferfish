@@ -1,4 +1,4 @@
-package io.github.shoalapps.swordfish.data
+package io.github.shoalapps.pufferfish.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,7 +28,7 @@ object Lyrics {
     }
 
     private val json = Json { ignoreUnknownKeys = true }
-    private const val AGENT = "Swordfish (https://github.com/ShoalApps/swordfish)"
+    private const val AGENT = "Pufferfish (https://github.com/ShoalApps/pufferfish)"
     private val cache = ConcurrentHashMap<String, Result>()
     private val none = Result(emptyList(), null)
 

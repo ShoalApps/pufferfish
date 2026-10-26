@@ -1,6 +1,6 @@
-package io.github.shoalapps.swordfish
+package io.github.shoalapps.pufferfish
 
-import io.github.shoalapps.swordfish.data.Lyrics
+import io.github.shoalapps.pufferfish.data.Lyrics
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

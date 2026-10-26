@@ -35,11 +35,11 @@ jobs:
         run: ./gradlew assembleRelease testDebugUnitTest --stacktrace
 
       - name: Publish release
-        run: cp app/build/outputs/apk/release/app-release.apk Swordfish.apk
+        run: cp app/build/outputs/apk/release/app-release.apk Pufferfish.apk
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: build-${{ github.run_number }}
-          name: Swordfish build ${{ github.run_number }}
-          body: Install Swordfish.apk below, or let Shoal install and update it for you. Free software under the GPL-3.0.
-          files: Swordfish.apk
+          name: Pufferfish build ${{ github.run_number }}
+          body: Install Pufferfish.apk below, or let Shoal install and update it for you. Free software under the GPL-3.0.
+          files: Pufferfish.apk
           make_latest: true

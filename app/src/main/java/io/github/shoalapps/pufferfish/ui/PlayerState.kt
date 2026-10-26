@@ -1,4 +1,4 @@
-package io.github.shoalapps.swordfish.ui
+package io.github.shoalapps.pufferfish.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -10,9 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import io.github.shoalapps.swordfish.Graph
-import io.github.shoalapps.swordfish.data.Track
-import io.github.shoalapps.swordfish.player.Queue
+import io.github.shoalapps.pufferfish.Graph
+import io.github.shoalapps.pufferfish.data.Track
+import io.github.shoalapps.pufferfish.player.Queue
 import kotlinx.coroutines.delay
 
 /** What the playback service is doing, kept up to date for the screens. */

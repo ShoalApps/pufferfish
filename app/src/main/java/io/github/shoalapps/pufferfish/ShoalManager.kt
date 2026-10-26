@@ -1,4 +1,4 @@
-package io.github.shoalapps.swordfish
+package io.github.shoalapps.pufferfish
 
 import android.app.AlertDialog
 import android.content.Context
