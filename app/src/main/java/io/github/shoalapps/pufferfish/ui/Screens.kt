@@ -204,6 +204,8 @@ private fun HomeScreen(nav: Nav) {
     val recent = remember(lib.history) { lib.history.map { it.track }.distinctBy { it.id } }
     val lastTrack = recent.firstOrNull()
     val charts by produceState<List<Track>?>(null) { value = runCatching { Music.charts() }.getOrDefault(emptyList()) }
+    // YouTube Music's own recommendations: Quick picks, hits, new releases.
+    val ytm by produceState(emptyList<io.github.shoalapps.pufferfish.data.HomeShelf>()) { value = runCatching { io.github.shoalapps.pufferfish.data.YtmHome.shelves(Graph.http) }.getOrDefault(emptyList()) }
     val moreLike by produceState<List<Track>?>(null, lastTrack?.id) { value = lastTrack?.let { runCatching { Music.related(it) }.getOrNull() } }
     val perRow = if (LocalConfiguration.current.screenWidthDp >= 840) 4 else 2
     val mixSeeds = remember(lib.history, lib.liked) {
@@ -243,6 +245,8 @@ private fun HomeScreen(nav: Nav) {
                 }
             }
         }
+        // New listeners see YouTube Music's picks straight away; everyone else after their own mixes.
+        if (recent.isEmpty()) ytmShelves(ytm, nav)
         if (recent.size > 2) shelf("Jump back in") { items(recent.take(15), key = { "r" + it.id }) { t -> TrackCard(t) { playAll(listOf(t), 0) } } }
         val top = Graph.library.topArtists()
         if (top.isNotEmpty()) shelf("Your top artists") {
@@ -260,6 +264,7 @@ private fun HomeScreen(nav: Nav) {
                 MixCard(title, seed) { scope.launch { startRadio(seed) } }
             }
         }
+        if (recent.isNotEmpty()) ytmShelves(ytm, nav)
         moreLike?.takeIf { it.isNotEmpty() }?.let { list -> shelf("More like ${lastTrack?.title}") { items(list.take(15), key = { "m" + it.id }) { t -> TrackCard(t) { playAll(list, list.indexOf(t)) } } } }
         when (val c = charts) {
             null -> item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { LoadingIndicator() } }
@@ -267,6 +272,29 @@ private fun HomeScreen(nav: Nav) {
         }
         if (lib.playlists.isNotEmpty()) shelf("Your playlists") {
             items(lib.playlists, key = { it.id }) { p -> CoverCard(p.name, songs(p.tracks.size), p.tracks.firstOrNull()?.art) { nav.open(Page.PlaylistPage(p.id)) } }
+        }
+    }
+}
+
+private fun LazyListScope.ytmShelves(shelves: List<io.github.shoalapps.pufferfish.data.HomeShelf>, nav: Nav) {
+    shelves.forEach { sh ->
+        val songs = sh.items.filterIsInstance<io.github.shoalapps.pufferfish.data.HomeItem.Song>().map { it.track }
+        shelf(sh.title) {
+            items(sh.items, key = { i ->
+                "y" + sh.title + when (i) {
+                    is io.github.shoalapps.pufferfish.data.HomeItem.Song -> i.track.id
+                    is io.github.shoalapps.pufferfish.data.HomeItem.Collection -> i.album.url
+                    is io.github.shoalapps.pufferfish.data.HomeItem.Person -> i.artist.url
+                }
+            }) { i ->
+                when (i) {
+                    is io.github.shoalapps.pufferfish.data.HomeItem.Song -> TrackCard(i.track) { playAll(songs, songs.indexOf(i.track)) }
+                    is io.github.shoalapps.pufferfish.data.HomeItem.Collection -> CoverCard(i.album.title, i.subtitle, i.album.art) {
+                        nav.open(Page.AlbumPage(i.album))
+                    }
+                    is io.github.shoalapps.pufferfish.data.HomeItem.Person -> CoverCard(i.artist.name, "Artist", i.artist.art, round = true) { nav.open(Page.ArtistPage(i.artist)) }
+                }
+            }
         }
     }
 }
