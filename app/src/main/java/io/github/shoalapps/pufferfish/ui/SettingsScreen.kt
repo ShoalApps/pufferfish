@@ -63,6 +63,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             item { Header("Updates") }
             item { Link(if (ShoalManager.installed(context)) "Check for updates in Shoal" else "Get Shoal for updates", "Shoal installs and updates all the Shoal apps") { ShoalManager.checkForUpdates(context) } }
             item { Header("About") }
+            item { Link("Support Shoal", "Shoal is free and has no ads; donations on Liberapay keep it going") { open("https://liberapay.com/ShoalApps") } }
             item { Link("Source code", "github.com/ShoalApps/pufferfish · GPL-3.0") { open("https://github.com/ShoalApps/pufferfish") } }
             item { Link("NewPipeExtractor", "YouTube Music search and streams · GPL-3.0") { open("https://github.com/TeamNewPipe/NewPipeExtractor") } }
             item { Link("Lyrics", "BetterLyrics, LRCLIB and NetEase Cloud Music") { open("https://lrclib.net") } }
