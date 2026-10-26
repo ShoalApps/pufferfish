@@ -13,7 +13,7 @@ data class Settings(
     val theme: Int = 0,
     val dynamicColor: Boolean = true,
     /** Colour the now-playing screen from the album art. */
-    val artColours: Boolean = true,
+    val artColours: Boolean = false,
     val recentSearches: List<String> = emptyList(),
 )
 

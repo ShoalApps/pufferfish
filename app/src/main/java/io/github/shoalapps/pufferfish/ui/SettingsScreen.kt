@@ -47,6 +47,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }) }) { pad ->
         LazyColumn(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()).wrapContentWidth().widthIn(max = 720.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
+            item(key = "support") { SupportCard { open("https://liberapay.com/ShoalApps") } }
             item { Header("Look") }
             item {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -66,7 +67,6 @@ fun SettingsScreen(onBack: () -> Unit) {
             if (io.github.shoalapps.pufferfish.Telemetry.available) item { Toggle("Send error reports", "Anonymous crash and error reports help fix bugs. Never your accounts or history.", io.github.shoalapps.pufferfish.Telemetry.enabled) { v -> io.github.shoalapps.pufferfish.Telemetry.setEnabled(context, v) } }
             item { Link("Privacy policy", "What Pufferfish sends, and to whom") { open("https://shoalapps.github.io/privacy.html") } }
             item { Link("Legal", "Licences, trademarks and notices") { open("https://shoalapps.github.io/legal.html") } }
-            item { Link("Support Shoal", "Shoal is free and has no ads; donations on Liberapay keep it going") { open("https://liberapay.com/ShoalApps") } }
             item { Link("Source code", "github.com/ShoalApps/pufferfish · GPL-3.0") { open("https://github.com/ShoalApps/pufferfish") } }
             item { Link("NewPipeExtractor", "YouTube Music search and streams · GPL-3.0") { open("https://github.com/TeamNewPipe/NewPipeExtractor") } }
             item { Link("Lyrics", "BetterLyrics, LRCLIB and NetEase Cloud Music") { open("https://lrclib.net") } }
