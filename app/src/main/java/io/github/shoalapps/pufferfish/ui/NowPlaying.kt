@@ -57,6 +57,9 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -254,19 +257,24 @@ private fun Toggle(icon: androidx.compose.ui.graphics.vector.ImageVector, label:
     ) { Box(contentAlignment = Alignment.Center) { Icon(icon, label, tint = if (on) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant) } }
 }
 
-/** Material 3 Expressive's wavy track, rippling while playing and flat when paused, with a draggable thumb. */
+/**
+ * Material 3 Expressive's wavy track, rippling while playing and flat when paused, with a
+ * draggable thumb. Little pufferfish leap out of the waves you've played and dive back in.
+ */
 @Composable
 private fun SeekBar(ui: PlayerUi) {
     var dragging by remember { mutableStateOf<Float?>(null) }
     val frac = (dragging ?: if (ui.durationMs > 0) ui.positionMs.toFloat() / ui.durationMs else 0f).coerceIn(0f, 1f)
     val amplitude by animateFloatAsState(if (ui.playing && dragging == null) 1f else 0f, label = "wave")
     Box(Modifier.fillMaxWidth().padding(top = 16.dp).height(36.dp), contentAlignment = Alignment.Center) {
-        LinearWavyProgressIndicator(
+        FishWaves(
             progress = { frac },
             amplitude = { amplitude },
-            modifier = Modifier.fillMaxWidth().height(12.dp),
+            modifier = Modifier.fillMaxWidth().height(36.dp),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.primary.copy(alpha = .22f),
+            fishColor = MaterialTheme.colorScheme.tertiary,
+            eyeColor = MaterialTheme.colorScheme.surface,
         )
         Slider(
             value = frac,
@@ -423,4 +431,116 @@ private fun SleepSheet(onDismiss: () -> Unit) {
             if (ends != null || SleepTimer.endOfTrack) Text("Turn off timer", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().clickable { SleepTimer.cancel(); onDismiss() }.padding(horizontal = 24.dp, vertical = 14.dp))
         }
     }
+}
+
+/**
+ * The seek bar's water: the played part is a moving wave, the rest a flat line. While it's
+ * playing, pufferfish jump out of the waves in arcs, tilting along their path, with a splash as
+ * they leave and land. Everything is drawn in one Canvas from a single clock that's only read
+ * while drawing, so it never recomposes the player. With the phone's animations off, the water
+ * is still and there are no fish.
+ */
+@Composable
+private fun FishWaves(
+    progress: () -> Float,
+    amplitude: () -> Float,
+    modifier: Modifier,
+    color: Color,
+    trackColor: Color,
+    fishColor: Color,
+    eyeColor: Color,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val motion = remember {
+        android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+    }
+    val clock = androidx.compose.animation.core.rememberInfiniteTransition(label = "water")
+    // Seconds, looping every ~16 minutes; every movement below repeats well within that.
+    val seconds = clock.animateFloat(
+        0f, 1000f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1_000_000, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "seconds",
+    )
+    val fishPath = remember { androidx.compose.ui.graphics.Path() }
+    androidx.compose.foundation.Canvas(modifier.clearAndSetSemantics {}) {
+        val t = if (motion) seconds.value else 0f
+        val amp = amplitude() * 3.5.dp.toPx()
+        val mid = size.height / 2
+        val stroke = 4.dp.toPx()
+        val wavelength = 34.dp.toPx()
+        val played = progress().coerceIn(0f, 1f) * size.width
+        fun waveY(x: Float) = mid + amp * kotlin.math.sin((x / wavelength - t * 1.4f) * 2f * Math.PI.toFloat())
+
+        // The rest of the song: a flat line, starting a little after the wave like Material's.
+        val gap = 6.dp.toPx()
+        if (played + gap < size.width) drawLine(trackColor, androidx.compose.ui.geometry.Offset(played + gap, mid), androidx.compose.ui.geometry.Offset(size.width, mid), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+        // What's been played: the wave.
+        if (played > 0f) {
+            val wave = androidx.compose.ui.graphics.Path()
+            var x = 0f
+            wave.moveTo(0f, waveY(0f))
+            val step = 2.dp.toPx()
+            while (x < played) { x = (x + step).coerceAtMost(played); wave.lineTo(x, waveY(x)) }
+            drawPath(wave, color, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+        }
+        if (!motion || amp < 0.5f) return@Canvas
+
+        // The fish: up to three take turns, each jumping somewhere new along the played water.
+        val span = 30.dp.toPx()
+        val height = 13.dp.toPx() * amplitude()
+        // Only as many fish in the air as the played water has room for, so they never pile up.
+        val room = (played / (span * 2.2f)).toInt().coerceAtMost(3)
+        for (slot in 0 until room) {
+            val period = 3.1f + slot * 0.7f
+            val local = (t + slot * 1.3f) / period
+            val cycle = kotlin.math.floor(local).toInt()
+            val phase = local - cycle
+            val jump = 0.42f // share of each cycle spent in the air
+            // Where this jump starts: a fixed scramble of the cycle number, so it's steady per jump.
+            val r = (((cycle * 7919 + slot * 104729) % 1000 + 1000) % 1000) / 1000f
+            // Each fish keeps to its own stretch of the water.
+            val lane = played / room
+            val start = slot * lane + r * (lane - span).coerceAtLeast(0f)
+            val splashAt = { x: Float, k: Float ->
+                // A few droplets that rise and fade.
+                for (d in -1..1) {
+                    val dx = d * 4.dp.toPx() * (0.6f + k)
+                    val dy = -6.dp.toPx() * k * (1f - k) * 4f * (if (d == 0) 1.2f else 0.8f)
+                    drawCircle(color.copy(alpha = (1f - k) * 0.8f), 1.6.dp.toPx() * (1f - k * 0.5f), androidx.compose.ui.geometry.Offset(x + dx, waveY(x) + dy))
+                }
+            }
+            if (phase < jump) {
+                val p = phase / jump
+                val x = start + span * p
+                val y = waveY(x) - height * 4f * p * (1f - p)
+                // Facing along the arc: up as it leaves the water, down as it dives.
+                val dx = span
+                val dy = (waveY(x + 1f) - waveY(x)) * span - height * 4f * (1f - 2f * p)
+                val angle = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                if (p < 0.25f) splashAt(start, p / 0.25f)
+                rotate(angle, androidx.compose.ui.geometry.Offset(x, y)) { drawPuffer(fishPath, x, y, 4.5.dp.toPx(), fishColor, eyeColor) }
+            } else if (phase < jump + 0.12f) {
+                splashAt(start + span, (phase - jump) / 0.12f)
+            }
+        }
+    }
+}
+
+/** A little fish facing right, centred on (cx, cy), [r] half its body's length: oval body, forked tail, fin and eye. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPuffer(path: androidx.compose.ui.graphics.Path, cx: Float, cy: Float, r: Float, body: Color, eye: Color) {
+    path.reset()
+    // Forked tail.
+    path.moveTo(cx - r * 0.75f, cy)
+    path.quadraticTo(cx - r * 1.3f, cy - r * 0.2f, cx - r * 1.65f, cy - r * 0.7f)
+    path.quadraticTo(cx - r * 1.4f, cy, cx - r * 1.65f, cy + r * 0.7f)
+    path.quadraticTo(cx - r * 1.3f, cy + r * 0.2f, cx - r * 0.75f, cy)
+    path.close()
+    // Back fin.
+    path.moveTo(cx - r * 0.35f, cy - r * 0.55f)
+    path.quadraticTo(cx - r * 0.1f, cy - r * 1.05f, cx + r * 0.35f, cy - r * 0.6f)
+    path.close()
+    drawPath(path, body)
+    // Plump body (a pufferfish, after all).
+    drawOval(body, androidx.compose.ui.geometry.Offset(cx - r, cy - r * 0.72f), androidx.compose.ui.geometry.Size(r * 2f, r * 1.44f))
+    drawCircle(eye, r * 0.2f, androidx.compose.ui.geometry.Offset(cx + r * 0.5f, cy - r * 0.18f))
 }
