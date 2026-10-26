@@ -1,6 +1,13 @@
 # Pufferfish
 
-A YouTube Music player in Material 3 Expressive: search songs, albums and artists, background playback with a media notification, a radio that keeps going after your queue, karaoke-style word-timed lyrics, and the whole app coloured from the album art.
+YouTube Music, laid out like Spotify and coloured the Material You way.
+
+- **Home**: a greeting, your recent songs as shortcuts, Jump back in, your top artists, Made for you mixes, More like what you just played, and YouTube's music chart.
+- **Search**: Browse all genre cards; results lead with the artist or song you meant, then songs, artists, albums and playlists.
+- **Your Library**: Liked Songs, your own playlists, followed artists, saved albums and downloads.
+- **Offline**: download songs, albums and playlists, and they play with no connection.
+- **The player**: the whole app takes its colours from the album art (MaterialKolor), a wavy seek bar, karaoke-style word-timed lyrics, a queue, shuffle, repeat, song radio and a sleep timer.
+- Background playback with a media notification, a home-screen widget, and a radio that keeps going after your queue.
 
 Part of [Shoal](https://github.com/ShoalApps). GPL-3.0. Not affiliated with YouTube or Google.
 
