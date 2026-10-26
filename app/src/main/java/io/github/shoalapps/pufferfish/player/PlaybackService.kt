@@ -83,6 +83,8 @@ class PlaybackService : MediaSessionService() {
                 if (!events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED)) return
                 val t = p.currentMediaItem?.mediaId?.let { Queue.tracks[it] }
                 val playing = p.isPlaying
+                // Recently played, for Home and the library.
+                if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION) && t != null) io.github.shoalapps.pufferfish.Graph.library.played(t)
                 scope.launch(Dispatchers.IO) { io.github.shoalapps.pufferfish.widget.recordNowPlaying(this@PlaybackService, t?.title, t?.artist, t?.art, playing) }
             }
 

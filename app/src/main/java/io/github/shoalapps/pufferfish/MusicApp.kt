@@ -34,6 +34,7 @@ object Graph {
         OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
     }
     val store by lazy { Store(app) }
+    val library by lazy { io.github.shoalapps.pufferfish.data.Library(app) }
 
     /** The connection to the playback service, once it's ready. */
     var controller by mutableStateOf<MediaController?>(null)

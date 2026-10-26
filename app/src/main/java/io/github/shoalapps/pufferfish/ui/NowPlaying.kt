@@ -37,6 +37,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -130,7 +132,7 @@ fun animateScheme(target: ColorScheme): ColorScheme {
 
 /** The full-screen player. */
 @Composable
-fun NowPlaying(ui: PlayerUi, onClose: () -> Unit) {
+fun NowPlaying(ui: PlayerUi, onClose: () -> Unit, onArtist: (io.github.shoalapps.pufferfish.data.Artist) -> Unit = {}) {
     val t = ui.track
     var showLyrics by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
@@ -155,11 +157,11 @@ fun NowPlaying(ui: PlayerUi, onClose: () -> Unit) {
                     // Landscape and tablets: art (or lyrics) on the left, the song and controls on the right.
                     Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(40.dp)) {
                         Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) { ArtOrLyrics(t, ui, showLyrics) }
-                        Column(Modifier.weight(1f)) { Details(t, ui, showLyrics, { showLyrics = !showLyrics }) }
+                        Column(Modifier.weight(1f)) { Details(t, ui, showLyrics, { showLyrics = !showLyrics }, onArtist) }
                     }
                 } else {
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { ArtOrLyrics(t, ui, showLyrics) }
-                    Column(Modifier.wrapContentWidth().widthIn(max = 560.dp)) { Details(t, ui, showLyrics, { showLyrics = !showLyrics }) }
+                    Column(Modifier.wrapContentWidth().widthIn(max = 560.dp)) { Details(t, ui, showLyrics, { showLyrics = !showLyrics }, onArtist) }
                 }
             }
         }
@@ -186,10 +188,24 @@ private fun ArtOrLyrics(t: Track?, ui: PlayerUi, showLyrics: Boolean) {
 private fun Modifier.graphicsScale(s: Float) = this.then(Modifier.graphicsLayer(scaleX = s, scaleY = s))
 
 @Composable
-private fun Details(t: Track?, ui: PlayerUi, showLyrics: Boolean, toggleLyrics: () -> Unit) {
+private fun Details(t: Track?, ui: PlayerUi, showLyrics: Boolean, toggleLyrics: () -> Unit, onArtist: (io.github.shoalapps.pufferfish.data.Artist) -> Unit) {
     val c = Graph.controller
-    Text(t?.title.orEmpty(), style = MaterialTheme.typography.headlineSmallEmphasized, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 16.dp))
-    Text(t?.artist.orEmpty(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    // Title and artist with Spotify's heart beside them.
+    val lib by Graph.library.data.collectAsState()
+    val liked = t != null && lib.liked.any { it.id == t.id }
+    Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(t?.title.orEmpty(), style = MaterialTheme.typography.headlineSmallEmphasized, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                t?.artist.orEmpty(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                modifier = Modifier.clickable(enabled = t?.artistUrl != null) { t?.let { onArtist(io.github.shoalapps.pufferfish.data.Artist(it.artistUrl!!, it.artist, null)) } },
+            )
+        }
+        IconButton(onClick = { t?.let { Graph.library.toggleLike(it) } }) {
+            Icon(if (liked) androidx.compose.material.icons.Icons.Rounded.Favorite else androidx.compose.material.icons.Icons.Rounded.FavoriteBorder, if (liked) "Remove from Liked Songs" else "Add to Liked Songs",
+                tint = if (liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(30.dp))
+        }
+    }
     SeekBar(ui)
     // Main controls: rounded tonal skip buttons around a pill play button that widens while playing.
     val playWidth by animateDpAsState(if (ui.playing) 132.dp else 96.dp, label = "play")

@@ -74,3 +74,33 @@ fun formatTime(ms: Long): String {
     val s = ms / 1000
     return "%d:%02d".format(s / 60, s % 60)
 }
+
+/** Plays a list in shuffled order. */
+fun playShuffled(tracks: List<Track>) {
+    if (tracks.isEmpty()) return
+    val c = Graph.controller ?: return
+    c.setMediaItems(tracks.shuffled().map(Queue::item), 0, 0)
+    c.shuffleModeEnabled = false
+    c.prepare()
+    c.play()
+}
+
+/** Puts a song straight after the one playing. */
+fun playNext(t: Track) {
+    val c = Graph.controller ?: return
+    if (c.mediaItemCount == 0) { playAll(listOf(t), 0); return }
+    c.addMediaItem((c.currentMediaItemIndex + 1).coerceAtMost(c.mediaItemCount), Queue.item(t))
+}
+
+/** Adds a song to the end of the queue. */
+fun addToQueue(t: Track) {
+    val c = Graph.controller ?: return
+    if (c.mediaItemCount == 0) { playAll(listOf(t), 0); return }
+    c.addMediaItem(Queue.item(t))
+}
+
+/** Starts a radio from a song: it, then songs like it. */
+suspend fun startRadio(t: Track) {
+    val more = runCatching { io.github.shoalapps.pufferfish.data.Music.related(t) }.getOrDefault(emptyList())
+    playAll(listOf(t) + more.take(25), 0)
+}

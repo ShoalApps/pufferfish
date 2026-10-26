@@ -16,8 +16,11 @@ import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
+@kotlinx.serialization.Serializable
 data class Track(val id: String, val url: String, val title: String, val artist: String, val artistUrl: String?, val art: String?, val durationSec: Long)
+@kotlinx.serialization.Serializable
 data class Album(val url: String, val title: String, val artist: String, val art: String?)
+@kotlinx.serialization.Serializable
 data class Artist(val url: String, val name: String, val art: String?)
 
 /** A track ready to play: its audio stream and full details. */
@@ -54,8 +57,12 @@ object Music {
     /** An artist's songs (their main channel tab). */
     suspend fun artistTracks(url: String): Pair<Artist, List<Track>> = withContext(Dispatchers.IO) {
         val info = ChannelInfo.getInfo(yt, url)
-        val items = info.tabs.firstOrNull()?.let { tab -> runCatching { ChannelTabInfo.getInfo(yt, tab).relatedItems }.getOrNull() }.orEmpty()
-        Artist(url, info.name, best(info.avatars)) to items.filterIsInstance<StreamInfoItem>().map(::track)
+        // The first channel tab with songs on it; failing that, the artist's songs from search.
+        val fromTabs = info.tabs.asSequence().mapNotNull { tab -> runCatching { ChannelTabInfo.getInfo(yt, tab).relatedItems.filterIsInstance<StreamInfoItem>() }.getOrNull()?.takeIf { it.isNotEmpty() } }
+            .firstOrNull().orEmpty().map(::track)
+        val name = info.name.removeSuffix(" - Topic")
+        val tracks = fromTabs.ifEmpty { songs(name).filter { it.artist.equals(name, true) }.ifEmpty { songs(name) } }
+        Artist(url, name, best(info.avatars)) to tracks
     }
 
     /** Resolves a track to its best audio stream (AAC first, which every phone plays). */
@@ -85,6 +92,24 @@ object Music {
 
     fun album(i: PlaylistInfoItem) = Album(i.url, i.name, i.uploaderName.orEmpty(), best(i.thumbnails))
     fun artist(i: ChannelInfoItem) = Artist(i.url, i.name, best(i.thumbnails))
+
+    /** YouTube's music chart for your country (NewPipe's trending-music kiosk). */
+    suspend fun charts(): List<Track> = withContext(Dispatchers.IO) {
+        val list = yt.kioskList
+        val id = list.availableKiosks.firstOrNull { it.contains("music", true) } ?: return@withContext emptyList()
+        val url = list.getListLinkHandlerFactoryByType(id).fromId(id).url
+        org.schabi.newpipe.extractor.kiosk.KioskInfo.getInfo(yt, url).relatedItems.filterIsInstance<StreamInfoItem>().map(::track)
+    }
+
+    /** Playlists for a mood or genre ("Chill", "Workout"…), for Search's Browse cards. */
+    suspend fun playlists(query: String) = search(query, Kind.ALBUMS).filterIsInstance<PlaylistInfoItem>().map(::album) +
+        runCatching { SearchInfo.getInfo(yt, yt.searchQHFactory.fromQuery(query, listOf(YoutubeSearchQueryHandlerFactory.MUSIC_PLAYLISTS), "")).relatedItems }
+            .getOrDefault(emptyList()).filterIsInstance<PlaylistInfoItem>().map(::album)
+
+    /** Songs YouTube suggests after this one ("More like…" and song radio). */
+    suspend fun related(t: Track): List<Track> = withContext(Dispatchers.IO) {
+        StreamInfo.getInfo(yt, t.url).relatedItems.filterIsInstance<StreamInfoItem>().map(::track).filter { it.durationSec in 1..900 }
+    }
 
     /** The largest image; YouTube Music art comes square at many sizes. */
     fun best(images: List<Image>?): String? = images?.maxByOrNull { it.height * it.width }?.url?.let { u ->
