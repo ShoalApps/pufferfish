@@ -495,6 +495,7 @@ private fun BackTitle(title: String, nav: Nav) {
 @Composable
 private fun LibraryScreen(nav: Nav) {
     val lib by Graph.library.data.collectAsState()
+    val downloaded by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
     var filter by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -509,7 +510,7 @@ private fun LibraryScreen(nav: Nav) {
                 }
             }
         }
-        val downloadedCount = io.github.shoalapps.pufferfish.player.Downloads.done.value.size
+        val downloadedCount = downloaded.size
         if (filter == "Downloaded" || (filter == null && downloadedCount > 0)) item {
             LibraryRow("Downloaded", "On this phone · ${songs(downloadedCount)}", null, downloaded = true) { nav.open(Page.Downloaded) }
         }

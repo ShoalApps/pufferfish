@@ -23,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
 
@@ -102,8 +103,11 @@ class PlaybackService : MediaSessionService() {
                     val next = Queue.related[id] ?: runCatching { Queue.resolve(id); Queue.related[id] }.getOrNull() ?: return@launch
                     // The player may only be touched on the main thread (reading the queue too).
                     launch(Dispatchers.Main) {
+                        // The user may have changed tracks or replaced the queue while the
+                        // recommendations were loading. Never append stale radio results.
                         val known = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
-                        val fresh = next.filter { it.id !in known && it.durationSec in 1..900 }.take(10)
+                        val fresh = RadioQueue.select(id, player.currentMediaItem?.mediaId,
+                            player.mediaItemCount - player.currentMediaItemIndex, known, next)
                         if (fresh.isNotEmpty()) player.addMediaItems(fresh.map(Queue::item))
                     }
                 }
@@ -122,6 +126,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        // Cancel pending radio and widget work before releasing the player.
+        scope.cancel()
         session?.run { player.release(); release() }
         session = null
         super.onDestroy()

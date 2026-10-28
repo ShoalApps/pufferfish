@@ -20,9 +20,9 @@ import io.github.shoalapps.pufferfish.data.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -41,10 +41,9 @@ object Downloads {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** IDs of songs fully downloaded, and those on their way. */
-    private val _done = MutableStateFlow<Set<String>>(emptySet())
-    val done: StateFlow<Set<String>> = _done
-    private val _pending = MutableStateFlow<Set<String>>(emptySet())
-    val pending: StateFlow<Set<String>> = _pending
+    private val state = DownloadState()
+    val done: StateFlow<Set<String>> = state.done
+    val pending: StateFlow<Set<String>> = state.pending
 
     fun init(context: Context) {
         if (::app.isInitialized) return
@@ -73,8 +72,7 @@ object Downloads {
                     Download.STATE_QUEUED, Download.STATE_DOWNLOADING, Download.STATE_RESTARTING -> pending += c.download.request.id
                 }
             }
-        }
-        _done.value = done; _pending.value = pending
+        }.onSuccess { state.reconcile(done, pending) }
     }
 
     /** Playback's data source: the download store first, then the network (nothing written). */
@@ -84,8 +82,7 @@ object Downloads {
 
     /** Saves a song: finds its audio address, then hands it to the download service. */
     fun add(t: Track) {
-        if (t.id in _done.value || t.id in _pending.value) return
-        _pending.value = _pending.value + t.id
+        val token = state.reserve(t.id) ?: return
         scope.launch {
             runCatching {
                 Queue.tracks[t.id] = t
@@ -93,7 +90,11 @@ object Downloads {
                 val req = DownloadRequest.Builder(t.id, android.net.Uri.parse(url)).setCustomCacheKey(t.id)
                     .setData(kotlinx.serialization.json.Json.encodeToString(Track.serializer(), t).toByteArray()).build()
                 DownloadService.sendAddDownload(app, PufferDownloadService::class.java, req, false)
-            }.onFailure { _pending.value = _pending.value - t.id }
+            }.onFailure { state.release(t.id, token) }.onSuccess {
+                // If the service never acknowledges the request, allow a retry.
+                delay(60_000)
+                state.release(t.id, token)
+            }
         }
     }
 
