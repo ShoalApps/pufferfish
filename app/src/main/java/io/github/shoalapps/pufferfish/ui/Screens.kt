@@ -65,7 +65,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
+import io.github.shoalapps.pufferfish.LocalisedIcon as Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LoadingIndicator
@@ -77,7 +77,7 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import io.github.shoalapps.pufferfish.LocalisedText as Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -236,7 +236,7 @@ private fun HomeScreen(nav: Nav) {
                             Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(10.dp)).clickable { playAll(listOf(t) + recent.filter { it.id != t.id }.take(20), 0) }) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     AsyncImage(t.art, null, Modifier.size(56.dp), contentScale = ContentScale.Crop)
-                                    Text(t.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 10.dp))
+                                    Text(t.title, localise = false, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 10.dp))
                                 }
                             }
                         }
@@ -326,8 +326,8 @@ private fun MixCard(title: String, seed: Track, onClick: () -> Unit) {
 private fun TrackCard(t: Track, onClick: () -> Unit) {
     Column(Modifier.width(144.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick)) {
         AsyncImage(t.art, null, Modifier.size(144.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentScale = ContentScale.Crop)
-        Text(t.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-        Text(t.artist, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(t.title, localise = false, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+        Text(t.artist, localise = false, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -433,7 +433,7 @@ private fun SearchResults(q: String, nav: Nav) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         AsyncImage(topArtist.art, null, Modifier.size(92.dp).clip(CircleShape), contentScale = ContentScale.Crop)
                         Column(Modifier.padding(start = 16.dp).weight(1f)) {
-                            Text(topArtist.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(topArtist.name, localise = false, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
                             Text("Artist", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         PlayButton(playing = false) { playAll(res.songs.filter { it.artist.equals(topArtist.name, true) }.ifEmpty { res.songs }, 0) }
@@ -446,7 +446,7 @@ private fun SearchResults(q: String, nav: Nav) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             AsyncImage(top.art, null, Modifier.size(92.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
                             Column(Modifier.padding(start = 16.dp).weight(1f)) {
-                                Text(top.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(top.title, localise = false, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text("Song · ${top.artist}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                             }
                             PlayButton(playing = false) { playAll(res.songs, 0) }
@@ -712,7 +712,7 @@ fun TrackRow(t: Track, nav: Nav, number: Int? = null, playlistId: String? = null
         if (number != null) Text("$number", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(28.dp))
         else AsyncImage(t.art, null, Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentScale = ContentScale.Crop)
         Column(Modifier.padding(start = if (number != null) 4.dp else 12.dp).weight(1f)) {
-            Text(t.title, style = MaterialTheme.typography.bodyLarge, color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(t.title, localise = false, style = MaterialTheme.typography.bodyLarge, color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (liked) Icon(Icons.Rounded.Favorite, "Liked", Modifier.size(13.dp).padding(end = 3.dp), tint = MaterialTheme.colorScheme.primary)
                 if (t.id in downloads) Icon(Icons.Rounded.DownloadDone, "Downloaded", Modifier.size(14.dp).padding(end = 3.dp), tint = MaterialTheme.colorScheme.primary)
@@ -736,8 +736,8 @@ private fun TrackMenu(t: Track, playlistId: String?, nav: Nav, onDismiss: () -> 
         Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(t.art, null, Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
             Column(Modifier.padding(start = 14.dp)) {
-                Text(t.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(t.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Text(t.title, localise = false, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(t.artist, localise = false, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             }
         }
         androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp))
