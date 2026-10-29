@@ -433,29 +433,40 @@ private fun SearchScreen(nav: Nav) {
     }
 }
 
-private data class Results(val songs: List<Track>, val artists: List<Artist>, val albums: List<Album>, val playlists: List<Album>)
+private data class Results(val songs: List<Track>, val artists: List<Artist>, val albums: List<Album>, val playlists: List<Album>, val incomplete: Boolean)
 
 @Composable
 private fun SearchResults(q: String, nav: Nav) {
     val online by io.github.shoalapps.pufferfish.data.OfflineMode.online.collectAsState()
     if (!online) { OfflineSongs(nav, q); return }
-    val r by produceState<Result<Results>?>(null, q) {
-        value = runCatching {
-            coroutineScope {
-                val s = async { runCatching { Music.songs(q) }.getOrDefault(emptyList()) }
-                val ar = async { runCatching { Music.artists(q) }.getOrDefault(emptyList()) }
-                val al = async { runCatching { Music.albums(q) }.getOrDefault(emptyList()) }
-                val pl = async { runCatching { Music.playlists(q) }.getOrDefault(emptyList()) }
-                Results(s.await(), ar.await(), al.await(), pl.await())
-            }
+    var retry by remember(q) { mutableStateOf(0) }
+    val r by produceState<Results?>(null, q, retry) {
+        value = null
+        suspend fun <T> fetch(block: suspend () -> List<T>): Result<List<T>> = try {
+            Result.success(block())
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+          catch (e: Exception) { Result.failure(e) }
+        value = coroutineScope {
+            val s = async { fetch { Music.songs(q) } }
+            val ar = async { fetch { Music.artists(q) } }
+            val al = async { fetch { Music.albums(q) } }
+            val pl = async { fetch { Music.playlists(q) } }
+            val songs = s.await(); val artists = ar.await(); val albums = al.await(); val playlists = pl.await()
+            Results(songs.getOrDefault(emptyList()), artists.getOrDefault(emptyList()), albums.getOrDefault(emptyList()), playlists.getOrDefault(emptyList()),
+                songs.isFailure || artists.isFailure || albums.isFailure || playlists.isFailure)
         }
     }
-    val res = r?.getOrNull()
+    val res = r
     when {
         r == null -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
-        res == null || (res.songs.isEmpty() && res.artists.isEmpty() && res.albums.isEmpty() && res.playlists.isEmpty()) ->
-            Text("Couldn't find anything for \"$q\". Check your connection or try other words.", Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        res == null -> Unit
+        res.songs.isEmpty() && res.artists.isEmpty() && res.albums.isEmpty() && res.playlists.isEmpty() ->
+            Column(Modifier.padding(24.dp)) {
+                Text(if (res.incomplete) "Couldn't load all search results. Check your connection and try again." else "No results for \"$q\". Try other words.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (res.incomplete) TextButton(onClick = { retry++ }) { Text("Try again") }
+            }
         else -> LazyColumn(Modifier.fillMaxSize().wrapContentWidth().widthIn(max = 900.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (res.incomplete) item { TextButton(onClick = { retry++ }) { Text("Some results couldn't load. Try again") } }
             // Like Spotify: searching an artist's name puts the artist on top.
             val topArtist = res.artists.firstOrNull()?.takeIf { it.name.equals(q.trim(), true) }
             if (topArtist != null) item {
