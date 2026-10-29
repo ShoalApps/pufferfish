@@ -199,7 +199,7 @@ private fun greeting(): String {
 
 @Composable
 private fun OfflineSongs(nav: Nav, query: String = "") {
-    val requested by io.github.shoalapps.pufferfish.player.Downloads.requestedCount.collectAsState()
+    val requested by io.github.shoalapps.pufferfish.player.Downloads.requests.collectAsState()
     val done by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
     val tracks = remember(done, query) { io.github.shoalapps.pufferfish.player.Downloads.tracks().filter {
         query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true)
@@ -210,7 +210,15 @@ private fun OfflineSongs(nav: Nav, query: String = "") {
             TextButton(onClick = { nav.open(Page.Settings) }) { Text("Settings") }
         } }
         item { Text("Likes, playlists and listening history are saved on this phone, including offline. They do not sync to YouTube Music.", modifier = Modifier.padding(vertical = 12.dp)) }
-        if (requested > 0) item { Text("Downloads waiting for an allowed connection: " + requested) }
+        if (requested.isNotEmpty()) {
+            item { Text("Downloads waiting for an allowed connection: " + requested.size) }
+            items(requested, key = { "waiting-" + it.id }) { t ->
+                Row {
+                    Text(t.title, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { io.github.shoalapps.pufferfish.player.Downloads.remove(t.id) }) { Text("Cancel") }
+                }
+            }
+        }
         if (tracks.isEmpty()) item { Text("No downloaded songs here. Download music while online to listen offline.") }
         itemsIndexed(tracks, key = { _, t -> t.id }) { i, t -> TrackRow(t, nav) { playAll(tracks, i) } }
     }
@@ -769,6 +777,7 @@ private fun TrackMenu(t: Track, playlistId: String?, nav: Nav, onDismiss: () -> 
             MenuItem(Icons.AutoMirrored.Rounded.PlaylistAdd, "Add to playlist") { addTo = true }
             val downloaded by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
             if (t.id in downloaded) MenuItem(Icons.Rounded.DownloadDone, "Remove download") { io.github.shoalapps.pufferfish.player.Downloads.remove(t.id); onDismiss() }
+            else if (io.github.shoalapps.pufferfish.player.Downloads.requests.collectAsState().value.any { it.id == t.id }) MenuItem(Icons.Rounded.Close, "Cancel download") { io.github.shoalapps.pufferfish.player.Downloads.remove(t.id); onDismiss() }
             else MenuItem(Icons.Rounded.Download, "Download") { io.github.shoalapps.pufferfish.player.Downloads.add(t); onDismiss() }
             if (playlistId != null) MenuItem(Icons.Rounded.RemoveCircleOutline, "Remove from this playlist") { Graph.library.removeFrom(playlistId, t.id); onDismiss() }
             MenuItem(Icons.Rounded.SkipNext, "Play next") { playNext(t); onDismiss() }

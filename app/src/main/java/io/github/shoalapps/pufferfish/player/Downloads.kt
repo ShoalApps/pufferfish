@@ -84,14 +84,16 @@ object Downloads {
             .setCacheKeyFactory { spec -> spec.uri.takeIf { it.scheme == Queue.SCHEME }?.lastPathSegment ?: spec.key ?: spec.uri.toString() }
 
     val requestedCount = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val requests = kotlinx.coroutines.flow.MutableStateFlow<List<Track>>(emptyList())
     private val requested get() = app.getSharedPreferences("download-requests", Context.MODE_PRIVATE)
     private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
     @Synchronized private fun queued(): List<Track> = runCatching {
         json.decodeFromString<List<Track>>(requested.getString("tracks", "[]")!!)
     }.getOrDefault(emptyList())
     @Synchronized private fun saveQueue(list: List<Track>) {
-        requestedCount.value = list.size
         check(requested.edit().putString("tracks", json.encodeToString(kotlinx.serialization.builtins.ListSerializer(Track.serializer()), list)).commit())
+        requestedCount.value = list.size
+        requests.value = list
     }
 
     fun policyChanged() {
@@ -119,7 +121,10 @@ object Downloads {
                 val url = Queue.resolve(t.id)
                 val req = DownloadRequest.Builder(t.id, android.net.Uri.parse(url)).setCustomCacheKey(t.id)
                     .setData(kotlinx.serialization.json.Json.encodeToString(Track.serializer(), t).toByteArray()).build()
-                DownloadService.sendAddDownload(app, PufferDownloadService::class.java, req, false)
+                synchronized(this@Downloads) {
+                    if (queued().none { it.id == t.id }) { state.release(t.id, token); return@launch }
+                    DownloadService.sendAddDownload(app, PufferDownloadService::class.java, req, false)
+                }
             }.onFailure { state.release(t.id, token) }.onSuccess {
                 // If the service never acknowledges the request, allow a retry.
                 delay(60_000)
