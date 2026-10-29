@@ -19,8 +19,10 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class MusicApp : Application() {
+    override fun attachBaseContext(base: android.content.Context) { super.attachBaseContext(AppLanguage.wrap(base)) }
     override fun onCreate() {
         super.onCreate()
+        AppLanguage.init(this)
         Telemetry.init(this)
         Graph.app = this
         io.github.shoalapps.pufferfish.player.Downloads.init(this)

@@ -15,6 +15,14 @@ import org.junit.runner.RunWith
 class NavigationSmokeTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @org.junit.Before fun dismissReleaseNotes() {
+        compose.waitForIdle()
+        if (compose.onAllNodesWithText("Let's dive in").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText("Let's dive in").performClick()
+            compose.waitForIdle()
+        }
+    }
+
     @Test fun libraryOpens() {
         compose.onAllNodesWithText("Your Library").onFirst().performClick()
         compose.onNodeWithText("Liked Songs").assertExists()

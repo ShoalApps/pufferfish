@@ -12,6 +12,7 @@ import io.github.shoalapps.pufferfish.ui.MusicRoot
 import io.github.shoalapps.pufferfish.ui.MusicTheme
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(base: android.content.Context) { super.attachBaseContext(io.github.shoalapps.pufferfish.AppLanguage.wrap(base)) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Telemetry.askOnce(this)
@@ -21,7 +22,7 @@ class MainActivity : ComponentActivity() {
         Graph.connect()
         setContent {
             val settings by Graph.store.settings.collectAsState()
-            MusicTheme(settings) { MusicRoot() }
+            MusicTheme(settings) { WhatsNew.Host(); MusicRoot() }
         }
     }
 }
