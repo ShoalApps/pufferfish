@@ -1,4 +1,4 @@
-# Pufferfish
+<p align="center"><a href="https://shoalapps.github.io/"><img src="https://raw.githubusercontent.com/ShoalApps/shoalapps.github.io/main/assets/readme/pufferfish.svg" alt="Pufferfish - a Shoal app, with the rest of the Shoal family" width="100%"></a></p>
 
 YouTube Music, laid out like Spotify and coloured the Material You way.
 
