@@ -47,6 +47,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }) }) { pad ->
         LazyColumn(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding()).wrapContentWidth().widthIn(max = 720.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
+            item { Toggle("Offline mode", "Show downloads and keep library changes on this phone", s.offlineMode) { v -> Graph.store.updateSettings { it.copy(offlineMode = v) } } }
+            item { Toggle("Download on Wi-Fi only", "Mobile downloads require this to be off; Data Saver still applies", s.downloadWifiOnly) { v -> Graph.store.updateSettings { it.copy(downloadWifiOnly = v) } } }
             item(key = "app-language") { io.github.shoalapps.pufferfish.AppLanguage.SettingsRow() }
             item(key = "support") { SupportCard { open("https://liberapay.com/ShoalApps") } }
             item { Header("Look") }

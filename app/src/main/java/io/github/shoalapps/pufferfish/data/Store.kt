@@ -11,6 +11,8 @@ import kotlinx.serialization.json.Json
 data class Settings(
     /** 0 = follow the phone, 1 = light, 2 = dark */
     val theme: Int = 0,
+    val offlineMode: Boolean = false,
+    val downloadWifiOnly: Boolean = true,
     val dynamicColor: Boolean = true,
     /** Colour the now-playing screen from the album art. */
     val artColours: Boolean = false,
@@ -25,6 +27,7 @@ class Store(context: Context) {
 
     fun updateSettings(change: (Settings) -> Settings) {
         _settings.update(change)
+        OfflineMode.changed()
         prefs.edit().putString("settings", json.encodeToString(Settings.serializer(), _settings.value)).apply()
     }
 

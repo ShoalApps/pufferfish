@@ -1,5 +1,9 @@
 [
   {
+    "title": "Your music offline",
+    "body": "Home and search show downloaded songs when offline, and offline playback skips unavailable songs. Likes, playlists and history remain saved locally. Download requests wait across restarts for an allowed connection; Wi-Fi only is the default and Data Saver takes precedence."
+  },
+  {
     "title": "A fresh catch, every update",
     "body": "Pufferfish now shows version-specific release notes after an update."
   },

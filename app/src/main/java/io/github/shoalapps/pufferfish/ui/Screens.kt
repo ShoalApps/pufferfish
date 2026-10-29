@@ -198,15 +198,44 @@ private fun greeting(): String {
 }
 
 @Composable
+private fun OfflineSongs(nav: Nav, query: String = "") {
+    val requested by io.github.shoalapps.pufferfish.player.Downloads.requests.collectAsState()
+    val done by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
+    val tracks = remember(done, query) { io.github.shoalapps.pufferfish.player.Downloads.tracks().filter {
+        query.isBlank() || it.title.contains(query, true) || it.artist.contains(query, true)
+    } }
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp)) {
+        item { Row {
+            Text("Offline · downloads", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            TextButton(onClick = { nav.open(Page.Settings) }) { Text("Settings") }
+        } }
+        item { Text("Likes, playlists and listening history are saved on this phone, including offline. They do not sync to YouTube Music.", modifier = Modifier.padding(vertical = 12.dp)) }
+        if (requested.isNotEmpty()) {
+            item { Text("Downloads waiting for an allowed connection: " + requested.size) }
+            items(requested, key = { "waiting-" + it.id }) { t ->
+                Row {
+                    Text(t.title, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { io.github.shoalapps.pufferfish.player.Downloads.remove(t.id) }) { Text("Cancel") }
+                }
+            }
+        }
+        if (tracks.isEmpty()) item { Text("No downloaded songs here. Download music while online to listen offline.") }
+        itemsIndexed(tracks, key = { _, t -> t.id }) { i, t -> TrackRow(t, nav) { playAll(tracks, i) } }
+    }
+}
+
+@Composable
 private fun HomeScreen(nav: Nav) {
     val lib by Graph.library.data.collectAsState()
+    val online by io.github.shoalapps.pufferfish.data.OfflineMode.online.collectAsState()
+    if (!online) { OfflineSongs(nav); return }
     val scope = rememberCoroutineScope()
     val recent = remember(lib.history) { lib.history.map { it.track }.distinctBy { it.id } }
     val lastTrack = recent.firstOrNull()
-    val charts by produceState<List<Track>?>(null) { value = runCatching { Music.charts() }.getOrDefault(emptyList()) }
+    val charts by produceState<List<Track>?>(null) { value = runCatching { if (io.github.shoalapps.pufferfish.data.OfflineMode.backgroundAllowed()) Music.charts() else emptyList() }.getOrDefault(emptyList()) }
     // YouTube Music's own recommendations: Quick picks, hits, new releases.
-    val ytm by produceState(emptyList<io.github.shoalapps.pufferfish.data.HomeShelf>()) { value = runCatching { io.github.shoalapps.pufferfish.data.YtmHome.shelves(Graph.http) }.getOrDefault(emptyList()) }
-    val moreLike by produceState<List<Track>?>(null, lastTrack?.id) { value = lastTrack?.let { runCatching { Music.related(it) }.getOrNull() } }
+    val ytm by produceState(emptyList<io.github.shoalapps.pufferfish.data.HomeShelf>()) { value = runCatching { if (io.github.shoalapps.pufferfish.data.OfflineMode.backgroundAllowed()) io.github.shoalapps.pufferfish.data.YtmHome.shelves(Graph.http) else emptyList() }.getOrDefault(emptyList()) }
+    val moreLike by produceState<List<Track>?>(null, lastTrack?.id) { value = lastTrack?.takeIf { io.github.shoalapps.pufferfish.data.OfflineMode.backgroundAllowed() }?.let { runCatching { Music.related(it) }.getOrNull() } }
     val perRow = if (LocalConfiguration.current.screenWidthDp >= 840) 4 else 2
     val mixSeeds = remember(lib.history, lib.liked) {
         Graph.library.topArtists().take(4).mapNotNull { (name, _) -> recent.firstOrNull { it.artist == name }?.let { "$name Mix" to it } } +
@@ -408,6 +437,8 @@ private data class Results(val songs: List<Track>, val artists: List<Artist>, va
 
 @Composable
 private fun SearchResults(q: String, nav: Nav) {
+    val online by io.github.shoalapps.pufferfish.data.OfflineMode.online.collectAsState()
+    if (!online) { OfflineSongs(nav, q); return }
     val r by produceState<Result<Results>?>(null, q) {
         value = runCatching {
             coroutineScope {
@@ -625,7 +656,7 @@ private fun AlbumScreen(album: Album, nav: Nav) {
 @Composable
 private fun ArtistScreen(artist: Artist, nav: Nav) {
     val lib by Graph.library.data.collectAsState()
-    val state by produceState<Result<List<Track>>?>(null, artist.url) { value = runCatching { Music.artistTracks(artist.url).second } }
+    val state by produceState<Result<List<Track>>?>(null, artist.url) { value = runCatching { if (io.github.shoalapps.pufferfish.data.OfflineMode.available()) Music.artistTracks(artist.url).second else io.github.shoalapps.pufferfish.player.Downloads.tracks().filter { it.artist.equals(artist.name, true) } } }
     val tracks = state?.getOrNull().orEmpty()
     val following = lib.artists.any { it.url == artist.url }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -746,6 +777,7 @@ private fun TrackMenu(t: Track, playlistId: String?, nav: Nav, onDismiss: () -> 
             MenuItem(Icons.AutoMirrored.Rounded.PlaylistAdd, "Add to playlist") { addTo = true }
             val downloaded by io.github.shoalapps.pufferfish.player.Downloads.done.collectAsState()
             if (t.id in downloaded) MenuItem(Icons.Rounded.DownloadDone, "Remove download") { io.github.shoalapps.pufferfish.player.Downloads.remove(t.id); onDismiss() }
+            else if (io.github.shoalapps.pufferfish.player.Downloads.requests.collectAsState().value.any { it.id == t.id }) MenuItem(Icons.Rounded.Close, "Cancel download") { io.github.shoalapps.pufferfish.player.Downloads.remove(t.id); onDismiss() }
             else MenuItem(Icons.Rounded.Download, "Download") { io.github.shoalapps.pufferfish.player.Downloads.add(t); onDismiss() }
             if (playlistId != null) MenuItem(Icons.Rounded.RemoveCircleOutline, "Remove from this playlist") { Graph.library.removeFrom(playlistId, t.id); onDismiss() }
             MenuItem(Icons.Rounded.SkipNext, "Play next") { playNext(t); onDismiss() }

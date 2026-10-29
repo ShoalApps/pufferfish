@@ -53,7 +53,7 @@ object Downloads {
         val http = DefaultHttpDataSource.Factory().setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36").setAllowCrossProtocolRedirects(true)
         manager = DownloadManager(app, db, cache, http, Executors.newFixedThreadPool(2)).apply {
             maxParallelDownloads = 2
-            requirements = Requirements(Requirements.NETWORK)
+            requirements = Requirements(Requirements.NETWORK_UNMETERED)
             addListener(object : DownloadManager.Listener {
                 override fun onDownloadChanged(m: DownloadManager, d: Download, e: Exception?) = refresh()
                 override fun onDownloadRemoved(m: DownloadManager, d: Download) = refresh()
@@ -72,7 +72,10 @@ object Downloads {
                     Download.STATE_QUEUED, Download.STATE_DOWNLOADING, Download.STATE_RESTARTING -> pending += c.download.request.id
                 }
             }
-        }.onSuccess { state.reconcile(done, pending) }
+        }.onSuccess {
+            state.reconcile(done, pending)
+            synchronized(this) { saveQueue(queued().filterNot { it.id in done }) }
+        }
     }
 
     /** Playback's data source: the download store first, then the network (nothing written). */
@@ -80,16 +83,48 @@ object Downloads {
         CacheDataSource.Factory().setCache(cache).setUpstreamDataSourceFactory(upstream).setCacheWriteDataSinkFactory(null)
             .setCacheKeyFactory { spec -> spec.uri.takeIf { it.scheme == Queue.SCHEME }?.lastPathSegment ?: spec.key ?: spec.uri.toString() }
 
-    /** Saves a song: finds its audio address, then hands it to the download service. */
-    fun add(t: Track) {
+    val requestedCount = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val requests = kotlinx.coroutines.flow.MutableStateFlow<List<Track>>(emptyList())
+    private val requested get() = app.getSharedPreferences("download-requests", Context.MODE_PRIVATE)
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+    @Synchronized private fun queued(): List<Track> = runCatching {
+        json.decodeFromString<List<Track>>(requested.getString("tracks", "[]")!!)
+    }.getOrDefault(emptyList())
+    @Synchronized private fun saveQueue(list: List<Track>) {
+        check(requested.edit().putString("tracks", json.encodeToString(kotlinx.serialization.builtins.ListSerializer(Track.serializer()), list)).commit())
+        requestedCount.value = list.size
+        requests.value = list
+    }
+
+    fun policyChanged() {
+        if (!::manager.isInitialized) return
+        manager.requirements = Requirements(if (io.github.shoalapps.pufferfish.Graph.store.settings.value.downloadWifiOnly ||
+            io.github.shoalapps.pufferfish.data.OfflineMode.savingData()) Requirements.NETWORK_UNMETERED else Requirements.NETWORK)
+        if (!io.github.shoalapps.pufferfish.data.OfflineMode.available()) manager.pauseDownloads()
+        else {
+            manager.resumeDownloads()
+            if (io.github.shoalapps.pufferfish.data.OfflineMode.downloadsAllowed()) queued().forEach(::start)
+        }
+    }
+
+    /** Saves the intent even offline; network work follows the user's download policy. */
+    @Synchronized fun add(t: Track) {
+        saveQueue((queued().filterNot { it.id == t.id } + t).takeLast(500))
+        if (io.github.shoalapps.pufferfish.data.OfflineMode.downloadsAllowed()) start(t)
+    }
+    private fun start(t: Track) {
         val token = state.reserve(t.id) ?: return
         scope.launch {
             runCatching {
                 Queue.tracks[t.id] = t
+                if (!io.github.shoalapps.pufferfish.data.OfflineMode.downloadsAllowed()) { state.release(t.id, token); return@launch }
                 val url = Queue.resolve(t.id)
                 val req = DownloadRequest.Builder(t.id, android.net.Uri.parse(url)).setCustomCacheKey(t.id)
                     .setData(kotlinx.serialization.json.Json.encodeToString(Track.serializer(), t).toByteArray()).build()
-                DownloadService.sendAddDownload(app, PufferDownloadService::class.java, req, false)
+                synchronized(this@Downloads) {
+                    if (queued().none { it.id == t.id }) { state.release(t.id, token); return@launch }
+                    DownloadService.sendAddDownload(app, PufferDownloadService::class.java, req, false)
+                }
             }.onFailure { state.release(t.id, token) }.onSuccess {
                 // If the service never acknowledges the request, allow a retry.
                 delay(60_000)
@@ -100,7 +135,10 @@ object Downloads {
 
     fun addAll(tracks: List<Track>) = tracks.forEach(::add)
 
-    fun remove(id: String) = DownloadService.sendRemoveDownload(app, PufferDownloadService::class.java, id, false)
+    @Synchronized fun remove(id: String) {
+        saveQueue(queued().filterNot { it.id == id })
+        DownloadService.sendRemoveDownload(app, PufferDownloadService::class.java, id, false)
+    }
 
     /** The downloaded songs, with their details, for the library. */
     fun tracks(): List<Track> = runCatching {

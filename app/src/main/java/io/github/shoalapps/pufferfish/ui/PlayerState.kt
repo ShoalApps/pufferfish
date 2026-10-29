@@ -66,7 +66,11 @@ fun rememberPlayerUi(): PlayerUi {
 /** Plays a list of songs starting from one of them. */
 fun playAll(tracks: List<Track>, start: Int) {
     val c = Graph.controller ?: return
-    c.setMediaItems(tracks.map(Queue::item), start, 0)
+    val selected = tracks.getOrNull(start)?.id
+    val available = if (io.github.shoalapps.pufferfish.data.OfflineMode.available()) tracks else
+        tracks.filter { it.id in io.github.shoalapps.pufferfish.player.Downloads.done.value }
+    if (available.isEmpty()) return
+    c.setMediaItems(available.map(Queue::item), available.indexOfFirst { it.id == selected }.coerceAtLeast(0), 0)
     c.prepare()
     c.play()
 }
@@ -79,8 +83,8 @@ fun formatTime(ms: Long): String {
 /** Plays a list in shuffled order. */
 fun playShuffled(tracks: List<Track>) {
     if (tracks.isEmpty()) return
+    playAll(tracks.shuffled(), 0)
     val c = Graph.controller ?: return
-    c.setMediaItems(tracks.shuffled().map(Queue::item), 0, 0)
     c.shuffleModeEnabled = false
     c.prepare()
     c.play()
@@ -102,6 +106,7 @@ fun addToQueue(t: Track) {
 
 /** Starts a radio from a song: it, then songs like it. */
 suspend fun startRadio(t: Track) {
+    if (!io.github.shoalapps.pufferfish.data.OfflineMode.backgroundAllowed()) { playAll(listOf(t), 0); return }
     val more = runCatching { io.github.shoalapps.pufferfish.data.Music.related(t) }.getOrDefault(emptyList())
     playAll(listOf(t) + more.take(25), 0)
 }
