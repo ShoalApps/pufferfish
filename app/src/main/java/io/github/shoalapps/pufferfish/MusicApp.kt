@@ -26,6 +26,7 @@ class MusicApp : Application() {
         Telemetry.init(this)
         Graph.app = this
         io.github.shoalapps.pufferfish.player.Downloads.init(this)
+        io.github.shoalapps.pufferfish.data.OfflineMode.init()
         val locale = Locale.getDefault()
         NewPipe.init(NewPipeDownloader(Graph.http), Localization.fromLocale(locale), ContentCountry(locale.country.ifBlank { "GB" }))
     }

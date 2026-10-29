@@ -54,6 +54,7 @@ object Queue {
         // Debug builds can pretend to be offline: adb shell setprop debug.pufferfish.offline 1
         if (io.github.shoalapps.pufferfish.BuildConfig.DEBUG && runCatching { Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, "debug.pufferfish.offline") == "1" }.getOrDefault(false))
             throw java.io.IOException("Offline (debug)")
+        if (!io.github.shoalapps.pufferfish.data.OfflineMode.available()) throw java.io.IOException("This song is not downloaded. Connect to play it.")
         streams[id]?.let { (at, url) -> if (System.currentTimeMillis() - at < 3 * 3600_000L) return url }
         val track = tracks[id] ?: error("Unknown song")
         val p = runBlocking { Music.playable(track) }
@@ -97,6 +98,7 @@ class PlaybackService : MediaSessionService() {
 
             // Radio: near the end of the queue, add songs YouTube suggests after the current one.
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                if (!io.github.shoalapps.pufferfish.data.OfflineMode.backgroundAllowed()) return
                 if (player.mediaItemCount - player.currentMediaItemIndex > 2) return
                 val id = item?.mediaId ?: return
                 scope.launch(Dispatchers.IO) {

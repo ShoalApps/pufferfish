@@ -48,9 +48,18 @@ object Music {
 
     /** An album's (or playlist's) tracks. */
     suspend fun albumTracks(url: String): Pair<Album, List<Track>> = withContext(Dispatchers.IO) {
+        val prefs = io.github.shoalapps.pufferfish.Graph.app.getSharedPreferences("offline-albums", android.content.Context.MODE_PRIVATE)
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        if (!OfflineMode.available()) {
+            val album = io.github.shoalapps.pufferfish.Graph.library.data.value.albums.firstOrNull { it.url == url }
+                ?: Album(url, "Downloaded album", "", null)
+            val ids = prefs.getStringSet(url, emptySet()).orEmpty()
+            return@withContext album to io.github.shoalapps.pufferfish.player.Downloads.tracks().filter { it.id in ids }
+        }
         val info = PlaylistInfo.getInfo(yt, url)
         val art = best(info.thumbnails)
         val tracks = info.relatedItems.filterIsInstance<StreamInfoItem>().map { track(it).let { t -> if (t.art == null) t.copy(art = art) else t } }
+        prefs.edit().putStringSet(url, tracks.map { it.id }.toSet()).apply()
         Album(url, info.name, info.uploaderName.orEmpty(), art) to tracks
     }
 
