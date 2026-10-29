@@ -1,0 +1,6 @@
+{
+  "name": "Pufferfish",
+  "description": "A YouTube Music client for Android with Material You and offline listening.",
+  "icon": "app/src/main/res/drawable/ic_launcher_foreground.xml",
+  "colours": "app/src/main/res/values/icon_colors.xml"
+}
