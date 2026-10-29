@@ -20,7 +20,7 @@ object OfflineMode {
         (!Graph.store.settings.value.downloadWifiOnly || cm?.isActiveNetworkMetered == false)
     fun changed() {
         online.value = available()
-        io.github.shoalapps.pufferfish.player.Downloads.policyChanged()
+        android.os.Handler(android.os.Looper.getMainLooper()).post { io.github.shoalapps.pufferfish.player.Downloads.policyChanged() }
     }
     fun init() {
         online.value = available()
