@@ -27,13 +27,18 @@ data class LibraryData(
 class Library(context: Context) {
     private val file = java.io.File(context.filesDir, "library.json")
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val _data = MutableStateFlow(runCatching { json.decodeFromString<LibraryData>(file.readText()) }.getOrNull() ?: LibraryData())
+    private val _data = MutableStateFlow(runCatching { json.decodeFromString<LibraryData>(android.util.AtomicFile(file).openRead().bufferedReader().use { it.readText() }) }.getOrNull() ?: LibraryData())
     val data: StateFlow<LibraryData> = _data
 
-    private fun change(f: (LibraryData) -> LibraryData) {
-        _data.update(f)
-        val text = json.encodeToString(LibraryData.serializer(), _data.value)
-        runCatching { val tmp = java.io.File(file.path + ".tmp"); tmp.writeText(text); tmp.renameTo(file) }
+    @Synchronized private fun change(f: (LibraryData) -> LibraryData) {
+        val next = f(_data.value)
+        val atomic = android.util.AtomicFile(file)
+        val out = atomic.startWrite()
+        try {
+            out.write(json.encodeToString(LibraryData.serializer(), next).toByteArray())
+            atomic.finishWrite(out)
+            _data.value = next
+        } catch (e: Exception) { atomic.failWrite(out); throw e }
     }
 
     fun isLiked(id: String) = _data.value.liked.any { it.id == id }

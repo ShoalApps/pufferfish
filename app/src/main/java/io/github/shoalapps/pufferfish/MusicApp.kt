@@ -18,7 +18,13 @@ import org.schabi.newpipe.extractor.localization.Localization
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-class MusicApp : Application() {
+class MusicApp : Application(), coil3.SingletonImageLoader.Factory {
+    override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader = coil3.ImageLoader.Builder(context)
+        .components { add(coil3.intercept.Interceptor { chain ->
+            val request = if (!io.github.shoalapps.pufferfish.data.OfflineMode.available() || io.github.shoalapps.pufferfish.data.OfflineMode.savingData())
+                chain.request.newBuilder().networkCachePolicy(coil3.request.CachePolicy.DISABLED).build() else chain.request
+            chain.withRequest(request).proceed()
+        }) }.build()
     override fun attachBaseContext(base: android.content.Context) { super.attachBaseContext(AppLanguage.wrap(base)) }
     override fun onCreate() {
         super.onCreate()
@@ -35,7 +41,10 @@ class MusicApp : Application() {
 object Graph {
     lateinit var app: Application
     val http: OkHttpClient by lazy {
-        OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
+        OkHttpClient.Builder().addInterceptor { chain ->
+            if (!io.github.shoalapps.pufferfish.data.OfflineMode.available()) throw java.io.IOException("Offline mode is using downloaded music")
+            chain.proceed(chain.request())
+        }.connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
     }
     val store by lazy { Store(app) }
     val library by lazy { io.github.shoalapps.pufferfish.data.Library(app) }
