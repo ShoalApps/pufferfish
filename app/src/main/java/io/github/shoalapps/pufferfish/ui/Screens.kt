@@ -219,7 +219,7 @@ private fun OfflineSongs(nav: Nav, query: String = "") {
                 }
             }
         }
-        if (tracks.isEmpty()) item { Text("No downloaded songs here. Download music while online to listen offline.") }
+        if (tracks.isEmpty()) item { Text(if (query.isBlank()) "No downloaded songs here. Download music while online to listen offline." else "No downloaded songs match \"${query.trim()}\". Try another search.") }
         itemsIndexed(tracks, key = { _, t -> t.id }) { i, t -> TrackRow(t, nav) { playAll(tracks, i) } }
     }
 }
@@ -453,7 +453,7 @@ private fun SearchResults(q: String, nav: Nav) {
     val res = r?.getOrNull()
     when {
         r == null -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
-        res == null || (res.songs.isEmpty() && res.artists.isEmpty() && res.albums.isEmpty()) ->
+        res == null || (res.songs.isEmpty() && res.artists.isEmpty() && res.albums.isEmpty() && res.playlists.isEmpty()) ->
             Text("Couldn't find anything for \"$q\". Check your connection or try other words.", Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         else -> LazyColumn(Modifier.fillMaxSize().wrapContentWidth().widthIn(max = 900.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
             // Like Spotify: searching an artist's name puts the artist on top.
@@ -485,9 +485,10 @@ private fun SearchResults(q: String, nav: Nav) {
                     }
                 }
             }
-            if (res.songs.size > 1) {
+            val songOffset = if (topArtist == null && res.songs.isNotEmpty()) 1 else 0
+            if (res.songs.size > songOffset) {
                 item { SectionTitle("Songs") }
-                itemsIndexed(res.songs.drop(1).take(5)) { i, t -> TrackRow(t, nav) { playAll(res.songs, i + 1) } }
+                itemsIndexed(res.songs.drop(songOffset).take(5)) { i, t -> TrackRow(t, nav) { playAll(res.songs, i + songOffset) } }
             }
             if (res.artists.isNotEmpty()) shelf("Artists") { items(res.artists.take(12)) { a -> CoverCard(a.name, "Artist", a.art, round = true) { nav.open(Page.ArtistPage(a)) } } }
             if (res.albums.isNotEmpty()) shelf("Albums") { items(res.albums.take(12)) { a -> CoverCard(a.title, a.artist, a.art) { nav.open(Page.AlbumPage(a)) } } }
